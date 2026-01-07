@@ -10,6 +10,8 @@ import DashboardPage from './pages/DashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import PaymentPage from './pages/PaymentPage';
+import TermsPage from './pages/TermsPage';
+import PrivacyPage from './pages/PrivacyPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import { User } from './types';
@@ -49,6 +51,8 @@ const App: React.FC = () => {
             
             <Route path="/perfil/:id" element={<ProfilePage />} />
             <Route path="/pagamento/:id" element={<PaymentPage />} />
+            <Route path="/termos" element={<TermsPage />} />
+            <Route path="/privacidade" element={<PrivacyPage />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>

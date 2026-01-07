@@ -12,7 +12,7 @@ const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-8 mb-16">
           
           {/* Coluna 1: Marca e Bio */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
+          <div className="lg:col-span-5 flex flex-col gap-6">
             <Link to="/" className="flex items-center gap-2 w-fit">
               <span className="material-symbols-outlined filled text-blue-500 text-3xl">verified</span>
               <span className="text-2xl font-black tracking-tighter uppercase italic">Verificados</span>
@@ -35,28 +35,16 @@ const Footer: React.FC = () => {
             </div>
           </div>
 
-          {/* Coluna 2: Navegação */}
-          <div className="lg:col-span-2 flex flex-col gap-6">
-            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">Explorar</h4>
-            <ul className="flex flex-col gap-4">
-              <li><Link to="/" className="text-sm text-slate-400 hover:text-white transition-colors">Modelos</Link></li>
-              <li><Link to="/info" className="text-sm text-slate-400 hover:text-white transition-colors">Como Funciona</Link></li>
-              <li><Link to="#" className="text-sm text-slate-400 hover:text-white transition-colors">Agências</Link></li>
-            </ul>
-          </div>
-
-          {/* Coluna 3: Institucional */}
-          <div className="lg:col-span-2 flex flex-col gap-6">
+          {/* Coluna 2: Institucional */}
+          <div className="lg:col-span-3 flex flex-col gap-6">
             <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">Institucional</h4>
             <ul className="flex flex-col gap-4">
-              <li><Link to="#" className="text-sm text-slate-400 hover:text-white transition-colors">Sobre Nós</Link></li>
-              <li><Link to="#" className="text-sm text-slate-400 hover:text-white transition-colors">Carreiras</Link></li>
-              <li><Link to="#" className="text-sm text-slate-400 hover:text-white transition-colors">Termos de Uso</Link></li>
-              <li><Link to="#" className="text-sm text-slate-400 hover:text-white transition-colors">Privacidade</Link></li>
+              <li><Link to="/termos" className="text-sm text-slate-400 hover:text-white transition-colors">Termos de Uso</Link></li>
+              <li><Link to="/privacidade" className="text-sm text-slate-400 hover:text-white transition-colors">Privacidade</Link></li>
             </ul>
           </div>
 
-          {/* Coluna 4: CTA / Comunidade */}
+          {/* Coluna 3: CTA / Comunidade */}
           <div className="lg:col-span-4 flex flex-col gap-6">
             <div className="p-6 rounded-3xl bg-white/5 border border-white/5 relative overflow-hidden group">
               <div className="relative z-10">
@@ -71,18 +59,6 @@ const Footer: React.FC = () => {
                 </Link>
               </div>
               <div className="absolute -bottom-4 -right-4 size-20 bg-blue-600/20 blur-2xl rounded-full group-hover:scale-150 transition-transform duration-700"></div>
-            </div>
-            
-            <div className="flex flex-col gap-3">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Siga-nos</span>
-              <div className="flex items-center gap-3">
-                {['facebook', 'instagram', 'x', 'linkedin'].map(social => (
-                  <a key={social} href="#" className="size-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-slate-400 hover:bg-blue-600 hover:text-white hover:border-blue-500 transition-all">
-                    <i className={`fa-brands fa-${social} text-sm`}></i>
-                    {!['facebook', 'instagram', 'x', 'linkedin'].includes(social) ? null : <span className="material-symbols-outlined text-sm">{social === 'x' ? 'close' : 'share'}</span>}
-                  </a>
-                ))}
-              </div>
             </div>
           </div>
         </div>
