@@ -11,7 +11,7 @@ export interface Model {
   artisticName: string;
   age: number;
   location: string;
-  category: string;
+  categories: string[];
   bio: string;
   profileImage: string;
   previewVideos: string[];

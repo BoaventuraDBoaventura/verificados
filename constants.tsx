@@ -15,13 +15,15 @@ export const MOZAMBIQUE_PROVINCES = [
   "Cabo Delgado"
 ];
 
+export const INITIAL_CATEGORIES = ['Fashion', 'Editorial', 'Comercial', 'Runway', 'Alternative', 'Fitness', 'Plus Size'];
+
 export const MOCK_MODELS: Model[] = [
   {
     id: '1',
     artisticName: 'Ana Silva',
     age: 24,
     location: 'Maputo Cidade',
-    category: 'Fashion',
+    categories: ['Fashion', 'Editorial'],
     bio: 'Modelo profissional com 5 anos de experiência em fotografia editorial, comercial e passarelas. Especializada em moda praia e fitness.',
     profileImage: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1000&auto=format&fit=crop',
     previewVideos: ['Video 1', 'Video 2'],
@@ -45,7 +47,7 @@ export const MOCK_MODELS: Model[] = [
     artisticName: 'Sarah Jenkins',
     age: 22,
     location: 'Beira, Sofala',
-    category: 'Editorial',
+    categories: ['Editorial', 'Comercial'],
     bio: 'Editorial and commercial model with a focus on sustainable fashion brands.',
     profileImage: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?q=80&w=1000&auto=format&fit=crop',
     previewVideos: ['Intro'],
@@ -65,7 +67,7 @@ export const MOCK_MODELS: Model[] = [
     artisticName: 'Marcus J.',
     age: 26,
     location: 'Nampula Cidade',
-    category: 'Alternative',
+    categories: ['Alternative', 'Fitness'],
     bio: 'Experienced in fitness and activewear modeling.',
     profileImage: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1000&auto=format&fit=crop',
     previewVideos: [],
@@ -85,7 +87,7 @@ export const MOCK_MODELS: Model[] = [
     artisticName: 'Elena R.',
     age: 25,
     location: 'Tete',
-    category: 'Runway',
+    categories: ['Runway', 'Fashion'],
     bio: 'International runway experience.',
     profileImage: 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?q=80&w=1000&auto=format&fit=crop',
     previewVideos: [],

@@ -41,10 +41,13 @@ const ProfilePage: React.FC = () => {
                   <span className="material-symbols-outlined text-sm">location_on</span>
                   {model.location}
                 </span>
-                <span className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-sm">
-                  <span className="material-symbols-outlined text-sm">category</span>
-                  {model.category}
-                </span>
+                <div className="flex gap-2">
+                  {model.categories.map(cat => (
+                    <span key={cat} className="flex items-center gap-1.5 bg-blue-500/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-blue-400 border border-blue-500/20">
+                      {cat}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -260,7 +263,7 @@ const ProfilePage: React.FC = () => {
 
             {/* Tags/Categories Mini */}
             <div className="flex flex-wrap gap-2">
-               {['Agenciada', 'Passaporte Ativo', 'Disponível para Viagens', 'Moçambique', 'Fashion'].map(tag => (
+               {['Agenciada', 'Passaporte Ativo', 'Disponível para Viagens', 'Moçambique', ...model.categories].map(tag => (
                  <span key={tag} className="text-[9px] font-bold uppercase tracking-widest bg-white/5 border border-white/5 px-3 py-1.5 rounded-lg text-slate-400">
                     {tag}
                  </span>

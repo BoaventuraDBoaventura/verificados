@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { MOZAMBIQUE_PROVINCES } from '../constants';
+import { MOZAMBIQUE_PROVINCES, INITIAL_CATEGORIES } from '../constants';
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   
   // Estados para os termos obrigatórios
   const [agreements, setAgreements] = useState({
@@ -15,7 +16,17 @@ const RegisterPage: React.FC = () => {
     age: false
   });
 
-  const isFormValid = agreements.terms && agreements.privacy && agreements.videoCall && agreements.age;
+  const toggleCategory = (cat: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+    );
+  };
+
+  const isFormValid = agreements.terms && 
+                     agreements.privacy && 
+                     agreements.videoCall && 
+                     agreements.age && 
+                     selectedCategories.length > 0;
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target;
@@ -27,7 +38,6 @@ const RegisterPage: React.FC = () => {
     if (!isFormValid) return;
     
     setLoading(true);
-    // Simulação de cadastro
     setTimeout(() => {
       setLoading(false);
       navigate('/login');
@@ -80,6 +90,32 @@ const RegisterPage: React.FC = () => {
                 <input type="text" placeholder="Ex: Maputo, Matola, Beira" className="w-full rounded-lg border border-white/10 bg-[#111418] p-4 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" required />
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Categorias de Atuação */}
+        <section className="rounded-2xl bg-[#1c2127] p-6 md:p-10 border border-white/5 shadow-xl">
+          <h2 className="text-xl font-bold border-b border-white/5 pb-4 mb-6 flex items-center gap-2">
+            <span className="material-symbols-outlined text-blue-500">category</span>
+            Categorias de Atuação
+          </h2>
+          <p className="text-xs text-slate-500 mb-6 uppercase tracking-widest font-bold">Selecione todas as categorias que fazem parte do seu perfil profissional:</p>
+          <div className="flex flex-wrap gap-3">
+            {INITIAL_CATEGORIES.map(cat => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => toggleCategory(cat)}
+                className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                  selectedCategories.includes(cat)
+                    ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/40'
+                    : 'bg-[#111418] border-white/10 text-slate-500 hover:border-white/30'
+                }`}
+              >
+                {cat}
+                {selectedCategories.includes(cat) && <span className="material-symbols-outlined text-[12px] ml-2">check</span>}
+              </button>
+            ))}
           </div>
         </section>
 

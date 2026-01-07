@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MOZAMBIQUE_PROVINCES, MOCK_MODELS } from '../constants';
+import { MOZAMBIQUE_PROVINCES, MOCK_MODELS, INITIAL_CATEGORIES } from '../constants';
 import { User, Model } from '../types';
 
 interface EditProfilePageProps {
@@ -11,7 +11,9 @@ interface EditProfilePageProps {
 const EditProfilePage: React.FC<EditProfilePageProps> = ({ user }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<Partial<Model>>({});
+  const [formData, setFormData] = useState<Partial<Model>>({
+    categories: []
+  });
 
   useEffect(() => {
     const currentModel = MOCK_MODELS.find(m => m.id === user.modelId);
@@ -25,10 +27,17 @@ const EditProfilePage: React.FC<EditProfilePageProps> = ({ user }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const toggleCategory = (cat: string) => {
+    const currentCats = formData.categories || [];
+    const newCats = currentCats.includes(cat) 
+      ? currentCats.filter(c => c !== cat) 
+      : [...currentCats, cat];
+    setFormData(prev => ({ ...prev, categories: newCats }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulation: in a real app, update backend here
     setTimeout(() => {
       setLoading(false);
       navigate('/dashboard');
@@ -62,20 +71,27 @@ const EditProfilePage: React.FC<EditProfilePageProps> = ({ user }) => {
                 required 
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categoria Principal</label>
-              <select 
-                name="category"
-                value={formData.category || ''}
-                onChange={handleChange}
-                className="rounded-xl border border-white/10 bg-[#111418] p-4 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer"
-                required
-              >
-                {['Fashion', 'Editorial', 'Comercial', 'Runway', 'Alternative'].map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
+            
+            <div className="md:col-span-2 flex flex-col gap-4">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categorias de Atuação</label>
+              <div className="flex flex-wrap gap-2">
+                {INITIAL_CATEGORIES.map(cat => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => toggleCategory(cat)}
+                    className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${
+                      (formData.categories || []).includes(cat)
+                        ? 'bg-blue-600 border-blue-500 text-white'
+                        : 'bg-[#111418] border-white/10 text-slate-500'
+                    }`}
+                  >
+                    {cat}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
+
             <div className="md:col-span-2 flex flex-col gap-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Bio / Apresentação</label>
               <textarea 

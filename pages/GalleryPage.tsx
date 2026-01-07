@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MOCK_MODELS, MOZAMBIQUE_PROVINCES } from '../constants';
+import { MOCK_MODELS, MOZAMBIQUE_PROVINCES, INITIAL_CATEGORIES } from '../constants';
 
 const GalleryPage: React.FC = () => {
   const [filter, setFilter] = useState('');
@@ -11,7 +11,7 @@ const GalleryPage: React.FC = () => {
   const [isProvinceModalOpen, setIsProvinceModalOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(6);
 
-  const categories = ['Todas', 'Fashion', 'Editorial', 'Comercial', 'Runway', 'Alternative'];
+  const categories = ['Todas', ...INITIAL_CATEGORIES];
   const provinces = ['Todas', ...MOZAMBIQUE_PROVINCES];
 
   // Prevent scroll when modal is open
@@ -27,7 +27,7 @@ const GalleryPage: React.FC = () => {
   const filteredModels = MOCK_MODELS.filter(m => {
     const matchesSearch = m.location.toLowerCase().includes(filter.toLowerCase()) || 
                          m.artisticName.toLowerCase().includes(filter.toLowerCase());
-    const matchesCategory = activeCategory === 'Todas' || m.category === activeCategory;
+    const matchesCategory = activeCategory === 'Todas' || m.categories.includes(activeCategory);
     const matchesProvince = activeProvince === 'Todas' || m.location.toLowerCase().includes(activeProvince.toLowerCase());
     
     return m.isVerified && matchesSearch && matchesCategory && matchesProvince;
@@ -309,7 +309,7 @@ const GalleryPage: React.FC = () => {
                       {model.location}
                     </span>
                     <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest">
-                      {model.category}
+                      {model.categories[0]} {model.categories.length > 1 && `+${model.categories.length - 1}`}
                     </span>
                   </div>
                 </div>
