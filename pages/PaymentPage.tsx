@@ -9,6 +9,8 @@ const PaymentPage: React.FC = () => {
   const model = MOCK_MODELS.find(m => m.id === id);
   const [method, setMethod] = useState<'mpesa' | 'emola'>('mpesa');
   const [loading, setLoading] = useState(false);
+  const [paymentDone, setPaymentDone] = useState(false);
+  const [ratingCode, setRatingCode] = useState('');
 
   if (!model) return <div>Modelo não encontrada.</div>;
 
@@ -16,10 +18,52 @@ const PaymentPage: React.FC = () => {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      alert('Pagamento processado com sucesso! Contato desbloqueado.');
-      navigate(`/perfil/${id}`);
+      const code = `VER-${Math.floor(1000 + Math.random() * 9000)}`;
+      setRatingCode(code);
+      setPaymentDone(true);
     }, 2000);
   };
+
+  if (paymentDone) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-20 text-center flex flex-col items-center gap-8 animate-in zoom-in duration-500">
+        <div className="size-24 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
+          <span className="material-symbols-outlined text-5xl filled">check_circle</span>
+        </div>
+        <div>
+          <h1 className="text-4xl font-black mb-4 uppercase italic">Pagamento Confirmado!</h1>
+          <p className="text-slate-400">O contato de <strong>{model.artisticName}</strong> foi desbloqueado. Você já pode ligar ou enviar mensagens.</p>
+        </div>
+
+        <div className="w-full p-8 rounded-[2.5rem] bg-[#1c2127] border border-white/5 space-y-6">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">Código para Classificação</p>
+          <div className="py-6 px-4 bg-black/20 rounded-2xl border border-dashed border-white/10">
+            <span className="text-5xl font-black tracking-[0.3em] text-white font-mono">{ratingCode}</span>
+          </div>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Guarde este código! Você precisará dele no perfil da modelo para deixar sua avaliação sobre o atendimento.
+          </p>
+          <button 
+            onClick={() => {
+              navigator.clipboard.writeText(ratingCode);
+              alert('Código copiado!');
+            }}
+            className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors flex items-center gap-2 mx-auto"
+          >
+            <span className="material-symbols-outlined text-sm">content_copy</span>
+            Copiar Código
+          </button>
+        </div>
+
+        <button 
+          onClick={() => navigate(`/perfil/${id}`)}
+          className="rounded-2xl bg-blue-600 px-10 py-5 text-sm font-black text-white shadow-xl shadow-blue-900/40 hover:bg-blue-500 transition-all uppercase italic tracking-widest"
+        >
+          Voltar ao Perfil
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 md:px-10 flex flex-col items-center justify-center">
@@ -28,12 +72,12 @@ const PaymentPage: React.FC = () => {
         {/* Left: Form */}
         <div className="lg:col-span-8 flex flex-col gap-8">
           <div>
-            <h1 className="text-4xl font-black mb-3">Desbloquear Contato</h1>
+            <h1 className="text-4xl font-black mb-3 italic tracking-tighter uppercase">Desbloquear Contato</h1>
             <p className="text-slate-400">Finalize o pagamento para ter acesso imediato ao WhatsApp e telefone da modelo.</p>
           </div>
 
           <section className="rounded-2xl bg-[#1c2127] border border-white/5 p-8 shadow-xl">
-             <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+             <h3 className="text-lg font-bold mb-6 flex items-center gap-2 uppercase tracking-tight italic">
                <span className="material-symbols-outlined text-blue-500">payments</span>
                Método de Pagamento
              </h3>
@@ -64,10 +108,10 @@ const PaymentPage: React.FC = () => {
 
           <section className="rounded-2xl bg-[#1c2127] border border-white/5 p-8 shadow-xl flex flex-col gap-6">
              <div className="flex flex-col gap-4">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Número de Telefone</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Número da Conta Móvel</label>
                 <div className="relative">
                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">call</span>
-                   <input type="tel" placeholder="84 123 4567" className="w-full rounded-lg border border-white/10 bg-[#111418] p-4 pl-12 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+                   <input type="tel" placeholder="84 123 4567" className="w-full rounded-lg border border-white/10 bg-[#111418] p-4 pl-12 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold" />
                 </div>
              </div>
 
@@ -82,19 +126,19 @@ const PaymentPage: React.FC = () => {
              <button 
                 onClick={handlePayment}
                 disabled={loading}
-                className="w-full rounded-xl bg-blue-600 py-4 text-lg font-bold text-white shadow-xl shadow-blue-500/30 hover:bg-blue-500 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full rounded-2xl bg-blue-600 py-5 text-sm font-black text-white shadow-xl shadow-blue-500/30 hover:bg-blue-500 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 uppercase tracking-widest italic"
               >
                 {loading ? 'Processando...' : (
                   <>
-                    Confirmar e Pagar 200 MT
+                    Pagar Agora 200 MT
                     <span className="material-symbols-outlined text-lg">lock</span>
                   </>
                 )}
              </button>
 
-             <div className="flex justify-center items-center gap-2 text-[10px] text-slate-600 font-bold uppercase tracking-widest">
+             <div className="flex justify-center items-center gap-2 text-[9px] text-slate-600 font-bold uppercase tracking-[0.2em]">
                <span className="material-symbols-outlined text-sm">verified_user</span>
-               Pagamento 100% Seguro
+               Sistema de Pagamento Verificado
              </div>
           </section>
         </div>
@@ -102,50 +146,49 @@ const PaymentPage: React.FC = () => {
         {/* Right: Summary */}
         <div className="lg:col-span-4 flex flex-col gap-6">
            <div className="sticky top-24 flex flex-col gap-6">
-              <h3 className="text-lg font-bold">Resumo do Pedido</h3>
-              <div className="rounded-2xl bg-[#1c2127] border border-white/5 overflow-hidden shadow-xl">
+              <h3 className="text-lg font-bold uppercase italic tracking-tighter">Resumo da Reserva</h3>
+              <div className="rounded-[2.5rem] bg-[#1c2127] border border-white/5 overflow-hidden shadow-xl">
                  <div className="relative h-40">
                     <img src={model.profileImage} className="h-full w-full object-cover" alt="Model" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#1c2127] to-transparent"></div>
-                    <div className="absolute bottom-4 left-4">
-                       <p className="text-lg font-bold">@{model.artisticName.replace(' ', '')}</p>
-                       <span className="flex items-center gap-1 text-[10px] font-bold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 w-fit">
-                         <span className="material-symbols-outlined text-[12px] filled">verified</span> Verificada
+                    <div className="absolute bottom-4 left-6">
+                       <p className="text-xl font-black uppercase italic tracking-tighter text-white">{model.artisticName}</p>
+                       <span className="flex items-center gap-1 text-[8px] font-black text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 w-fit uppercase tracking-widest">
+                         <span className="material-symbols-outlined text-[10px] filled">verified</span> Verificada
                        </span>
                     </div>
                  </div>
 
-                 <div className="p-6 flex flex-col gap-4">
-                    <div className="flex justify-between items-center pb-4 border-b border-white/5">
+                 <div className="p-8 flex flex-col gap-5">
+                    <div className="flex justify-between items-center pb-5 border-b border-white/5">
                        <div className="flex flex-col">
-                          <span className="text-sm font-bold">Desbloqueio de Contato</span>
-                          <span className="text-xs text-slate-500">Acesso vitalício</span>
+                          <span className="text-xs font-black uppercase tracking-widest text-white">Taxa de Acesso</span>
+                          <span className="text-[10px] text-slate-500 font-bold uppercase">Contato Vitalício</span>
                        </div>
-                       <span className="font-bold text-white">200 MT</span>
+                       <span className="font-black text-white text-lg">200 MT</span>
                     </div>
-                    <div className="flex justify-between items-center text-xs">
-                       <span className="text-slate-500">Taxa de serviço</span>
-                       <span className="text-slate-500">0 MT</span>
+                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+                       <span className="text-slate-500">Taxas Extras</span>
+                       <span className="text-emerald-500">GRÁTIS</span>
                     </div>
-                    <div className="flex justify-between items-end pt-4">
-                       <span className="font-bold text-slate-400">Total</span>
-                       <span className="text-2xl font-black text-blue-500">200 MT</span>
+                    <div className="flex justify-between items-end pt-2">
+                       <span className="font-black text-slate-500 uppercase text-[10px] tracking-widest">Total a Pagar</span>
+                       <span className="text-3xl font-black text-blue-500 tracking-tighter italic">200 MT</span>
                     </div>
                  </div>
 
-                 <div className="bg-[#111418] p-5 border-t border-white/5">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">Incluído:</p>
-                    <ul className="flex flex-col gap-2">
-                       {['Número de WhatsApp', 'Telefone para ligações', 'Redes sociais'].map(item => (
-                         <li key={item} className="flex items-center gap-2 text-xs text-slate-300">
-                           <span className="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+                 <div className="bg-[#111418] p-6 border-t border-white/5">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-600 mb-4">Você receberá:</p>
+                    <ul className="flex flex-col gap-3">
+                       {['Número de WhatsApp', 'Telefone Profissional', 'Código de Classificação'].map(item => (
+                         <li key={item} className="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                           <span className="material-symbols-outlined text-blue-500 text-base">check_circle</span>
                            {item}
                          </li>
                        ))}
                     </ul>
                  </div>
               </div>
-              <p className="text-center text-xs text-slate-600 hover:text-white transition-colors cursor-pointer">Termos e Condições</p>
            </div>
         </div>
       </div>
