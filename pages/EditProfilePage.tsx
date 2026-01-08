@@ -328,14 +328,17 @@ const EditProfilePage: React.FC<EditProfilePageProps> = ({ user }) => {
             // Preparar dados para atualização - SEMPRE enviar todos os campos
             const updateData: any = {
                 artistic_name: formData.artistic_name.trim(),
-                slug: formData.slug || (formData.artistic_name.trim()
-                    .toLowerCase()
-                    .normalize('NFD')
-                    .replace(/[\u0300-\u036f]/g, '')
-                    .replace(/[^\w\s-]/g, '')
-                    .replace(/\s+/g, '-')
-                    .replace(/--+/g, '-')
-                    .trim() + '-' + Math.random().toString(36).substring(2, 7)),
+                // Only include slug if it doesn't exist yet, preserving permalinks
+                ...(formData.slug ? {} : {
+                    slug: formData.artistic_name.trim()
+                        .toLowerCase()
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '')
+                        .replace(/[^\w\s-]/g, '')
+                        .replace(/\s+/g, '-')
+                        .replace(/--+/g, '-')
+                        .trim() + '-' + Math.random().toString(36).substring(2, 7)
+                }),
                 age: formData.age ? Number(formData.age) : null,
                 province: String(formData.province).trim(),
                 city: String(formData.city).trim(),
