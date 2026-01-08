@@ -4,13 +4,13 @@ import { Link } from 'react-router-dom';
 
 const Footer: React.FC = () => {
   return (
-    <footer className="relative border-t border-white/5 bg-[#0d141b] pt-20 pb-10 overflow-hidden">
+    <footer className="relative border-t border-white/5 bg-[#0d141b] pt-8 md:pt-20 pb-10 overflow-hidden">
       {/* Elemento Decorativo de Fundo */}
       <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 size-96 bg-blue-600/5 blur-[120px] rounded-full pointer-events-none"></div>
-      
+
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-8 mb-16">
-          
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-8 mb-16">
+
           {/* Coluna 1: Marca e Bio */}
           <div className="lg:col-span-5 flex flex-col gap-6">
             <Link to="/" className="flex items-center gap-2 w-fit">
@@ -50,8 +50,8 @@ const Footer: React.FC = () => {
               <div className="relative z-10">
                 <h4 className="text-sm font-bold text-white mb-2">Quer ser um talento verificado?</h4>
                 <p className="text-xs text-slate-400 mb-4">Destaque-se no mercado profissional com o selo de autenticidade.</p>
-                <Link 
-                  to="/cadastro" 
+                <Link
+                  to="/cadastro"
                   className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-blue-900/40 hover:bg-blue-500 transition-all active:scale-95"
                 >
                   Criar Perfil Grátis
@@ -62,9 +62,9 @@ const Footer: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Bottom Bar */}
-        <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
+        <div className="md:pt-8 md:border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex flex-col md:flex-row items-center gap-2 md:gap-6 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 text-center md:text-left">
             <p>© 2024 VERIFICADOS INC.</p>
             <span className="hidden md:block opacity-20">|</span>
@@ -72,7 +72,7 @@ const Footer: React.FC = () => {
               FEITO COM <span className="text-red-500 material-symbols-outlined filled text-[12px]">favorite</span> EM MOÇAMBIQUE
             </p>
           </div>
-          
+
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-600">
               <span className="material-symbols-outlined text-sm">language</span>
