@@ -19,6 +19,7 @@ export interface Model {
   phoneNumber?: string;
   isVerified: boolean;
   status: VerificationStatus;
+  verificationVideo?: string | null;
   // Technical Measures
   height?: string;
   weight?: string;

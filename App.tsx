@@ -17,20 +17,81 @@ import Footer from './components/Footer';
 import { User } from './types';
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+  // Carregar usuário do localStorage ao iniciar
+  const [user, setUser] = useState<User | null>(() => {
+    const savedUser = localStorage.getItem('verificados_user');
+    if (savedUser) {
+      try {
+        return JSON.parse(savedUser);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
 
-  // Simple auth simulation
-  const login = (role: 'model' | 'admin') => {
-    setUser({
-      id: role === 'model' ? 'u1' : 'admin-id',
-      email: role === 'model' ? 'ana@example.com' : 'admin@verificados.com',
-      role: role,
-      modelId: role === 'model' ? '1' : undefined
-    });
+  // Salvar usuário no localStorage sempre que mudar
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('verificados_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('verificados_user');
+    }
+  }, [user]);
+
+  // Função para atualizar usuário (pode receber role ou usuário completo)
+  const login = (userOrRole: 'model' | 'admin' | User) => {
+    if (typeof userOrRole === 'string') {
+      // Modo compatibilidade: se passar apenas role, carrega do localStorage
+      const savedUser = localStorage.getItem('verificados_user');
+      if (savedUser) {
+        try {
+          const parsed = JSON.parse(savedUser);
+          setUser(parsed);
+          return;
+        } catch {
+          // Fallback para valores fake apenas se não houver localStorage
+          const newUser: User = {
+            id: userOrRole === 'model' ? 'u1' : 'admin-id',
+            email: userOrRole === 'model' ? 'ana@example.com' : 'admin@verificados.com',
+            role: userOrRole,
+            modelId: userOrRole === 'model' ? '1' : undefined
+          };
+          setUser(newUser);
+        }
+      }
+    } else {
+      // Se passar usuário completo, usa ele
+      setUser(userOrRole);
+    }
   };
+
+  // Listener para mudanças no localStorage (para quando LoginPage atualiza de outras abas)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'verificados_user') {
+        if (e.newValue) {
+          try {
+            const parsed = JSON.parse(e.newValue);
+            setUser(parsed);
+          } catch {
+            // Ignora erros de parse
+          }
+        } else {
+          setUser(null);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('verificados_user');
   };
 
   return (

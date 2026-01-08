@@ -1,30 +1,166 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MOCK_MODELS } from '../constants';
+import { supabase } from '../supabaseClient';
+import { Model, VerificationStatus } from '../types';
 
 const PaymentPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const model = MOCK_MODELS.find(m => m.id === id);
+  const [model, setModel] = useState<Model | null>(null);
+  const [loading, setLoading] = useState(true);
   const [method, setMethod] = useState<'mpesa' | 'emola'>('mpesa');
-  const [loading, setLoading] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentDone, setPaymentDone] = useState(false);
   const [ratingCode, setRatingCode] = useState('');
+  const [timeRemaining, setTimeRemaining] = useState(300); // 5 minutos em segundos
 
-  if (!model) return <div>Modelo não encontrada.</div>;
+  // Função para mapear dados do banco para Model
+  const mapDataToModel = (data: any): Model => {
+    return {
+      id: data.id,
+      artisticName: data.artistic_name || '',
+      age: data.age || 0,
+      location: `${data.city || ''}, ${data.province || ''}`,
+      categories: data.categories || [],
+      bio: data.bio || '',
+      profileImage: data.profile_image || '',
+      previewVideos: Array.isArray(data.preview_videos) ? data.preview_videos : [],
+      galleryImages: Array.isArray(data.gallery_images) ? data.gallery_images : [],
+      phoneNumber: data.phone_number,
+      isVerified: data.is_verified || false,
+      status: data.status === 'Aprovado' ? VerificationStatus.APPROVED : 
+              data.status === 'Em Verificação' ? VerificationStatus.PENDING :
+              data.status === 'Rejeitado' ? VerificationStatus.REJECTED :
+              VerificationStatus.UNVERIFIED,
+      height: data.height || null,
+      weight: data.weight || null,
+      waist: data.waist || null,
+      bust: data.bust || null,
+      eyes: data.eyes || null,
+      hair: data.hair || null,
+      shoeSize: data.shoe_size || null
+    };
+  };
+
+  // Carregar modelo do banco de dados
+  useEffect(() => {
+    if (!id) {
+      setModel(null);
+      setLoading(false);
+      return;
+    }
+
+    const fetchModel = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('models')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) {
+          console.error('Erro ao carregar modelo:', error);
+          setModel(null);
+          setLoading(false);
+          return;
+        }
+
+        if (data) {
+          const mappedModel = mapDataToModel(data);
+          setModel(mappedModel);
+        } else {
+          setModel(null);
+        }
+        setLoading(false);
+      } catch (err) {
+        console.error('Erro inesperado ao buscar modelo:', err);
+        setModel(null);
+        setLoading(false);
+      }
+    };
+
+    fetchModel();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-20 flex items-center justify-center">
+        <div className="text-center">
+          <span className="material-symbols-outlined text-6xl text-slate-700 mb-4 animate-spin">refresh</span>
+          <p className="text-slate-400">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!model) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-20 flex items-center justify-center">
+        <div className="text-center">
+          <span className="material-symbols-outlined text-6xl text-slate-700 mb-4">error</span>
+          <h2 className="text-2xl font-bold mb-2">Modelo não encontrada</h2>
+          <p className="text-slate-400 mb-6">O perfil que você está procurando não existe ou foi removido.</p>
+          <button 
+            onClick={() => navigate('/')}
+            className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white hover:bg-blue-500 transition-all"
+          >
+            Voltar para Galeria
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handlePayment = () => {
-    setLoading(true);
+    setPaymentLoading(true);
     setTimeout(() => {
-      setLoading(false);
+      setPaymentLoading(false);
       const code = `VER-${Math.floor(1000 + Math.random() * 9000)}`;
       setRatingCode(code);
       setPaymentDone(true);
+      
+      // Salvar timestamp do pagamento no localStorage
+      if (id) {
+        const paymentData = {
+          modelId: id,
+          timestamp: Date.now(),
+          code: code
+        };
+        localStorage.setItem(`payment_${id}`, JSON.stringify(paymentData));
+      }
     }, 2000);
   };
 
+  // Timer para contagem regressiva de 5 minutos
+  useEffect(() => {
+    if (paymentDone && id) {
+      const paymentData = localStorage.getItem(`payment_${id}`);
+      if (paymentData) {
+        const { timestamp } = JSON.parse(paymentData);
+        const updateTimer = () => {
+          const elapsed = Math.floor((Date.now() - timestamp) / 1000);
+          const remaining = Math.max(0, 300 - elapsed);
+          setTimeRemaining(remaining);
+        };
+        
+        updateTimer(); // Atualizar imediatamente
+        const interval = setInterval(updateTimer, 1000);
+        
+        return () => clearInterval(interval);
+      }
+    }
+  }, [paymentDone, id]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   if (paymentDone) {
+    const showPhoneNumber = timeRemaining > 0 && model?.phoneNumber;
+    
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 text-center flex flex-col items-center gap-8 animate-in zoom-in duration-500">
         <div className="size-24 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
@@ -34,6 +170,44 @@ const PaymentPage: React.FC = () => {
           <h1 className="text-4xl font-black mb-4 uppercase italic">Pagamento Confirmado!</h1>
           <p className="text-slate-400">O contato de <strong>{model.artisticName}</strong> foi desbloqueado. Você já pode ligar ou enviar mensagens.</p>
         </div>
+
+        {/* Número de Telefone Visível */}
+        {showPhoneNumber && (
+          <div className="w-full p-8 rounded-[2.5rem] bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border-2 border-blue-500/30 space-y-4">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-blue-500">phone</span>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">Contato Desbloqueado</p>
+            </div>
+            <div className="py-4 px-6 bg-black/30 rounded-2xl border border-blue-500/20">
+              <p className="text-xs text-slate-400 mb-2 uppercase tracking-widest">Número de WhatsApp</p>
+              <a 
+                href={`https://wa.me/${model.phoneNumber?.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-2xl font-black text-white hover:text-blue-400 transition-colors block"
+              >
+                {model.phoneNumber}
+              </a>
+            </div>
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
+              <span className="material-symbols-outlined text-sm">timer</span>
+              <span className="font-bold">
+                Tempo restante: <span className="text-blue-500 font-black">{formatTime(timeRemaining)}</span>
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-500 italic">
+              O número ficará visível por mais {formatTime(timeRemaining)}
+            </p>
+          </div>
+        )}
+
+        {!showPhoneNumber && timeRemaining === 0 && (
+          <div className="w-full p-6 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+            <p className="text-sm text-amber-500 font-bold">
+              ⏱️ O tempo de visualização expirou. Faça um novo pagamento para acessar o contato novamente.
+            </p>
+          </div>
+        )}
 
         <div className="w-full p-8 rounded-[2.5rem] bg-[#1c2127] border border-white/5 space-y-6">
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">Código para Classificação</p>
@@ -125,10 +299,10 @@ const PaymentPage: React.FC = () => {
 
              <button 
                 onClick={handlePayment}
-                disabled={loading}
+                disabled={paymentLoading}
                 className="w-full rounded-2xl bg-blue-600 py-5 text-sm font-black text-white shadow-xl shadow-blue-500/30 hover:bg-blue-500 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 uppercase tracking-widest italic"
               >
-                {loading ? 'Processando...' : (
+                {paymentLoading ? 'Processando...' : (
                   <>
                     Pagar Agora 200 MT
                     <span className="material-symbols-outlined text-lg">lock</span>

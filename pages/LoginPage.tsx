@@ -1,25 +1,74 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 
 interface LoginPageProps {
-  onLogin: (role: 'model' | 'admin') => void;
+  onLogin: (role: 'model' | 'admin' | any) => void;
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simple logic for demo: if email contains admin, login as admin
-    if (email.toLowerCase().includes('admin')) {
-      onLogin('admin');
+    setLoading(true);
+    setError(null);
+
+    // Tentar login como admin primeiro
+    const { data: adminData, error: adminError } = await supabase
+      .from('admins')
+      .select('id, email')
+      .eq('email', email)
+      .eq('password', password)
+      .single();
+
+    if (!adminError && adminData) {
+      // Login como admin
+      const adminUser = {
+        id: adminData.id,
+        email: adminData.email,
+        role: 'admin' as const
+      };
+      localStorage.setItem('verificados_user', JSON.stringify(adminUser));
+      // Passar usuário completo para onLogin
+      onLogin(adminUser);
+      setLoading(false);
       navigate('/admin');
-    } else {
-      onLogin('model');
-      navigate('/dashboard');
+      return;
     }
+
+    // Se não for admin, tentar como modelo
+    const { data: modelData, error: modelError } = await supabase
+      .from('models')
+      .select('id, email, artistic_name')
+      .eq('email', email)
+      .eq('password', password)
+      .single();
+
+    if (!modelError && modelData) {
+      // Login como modelo
+      const modelUser = {
+        id: modelData.id,
+        email: modelData.email,
+        role: 'model' as const,
+        modelId: modelData.id
+      };
+      localStorage.setItem('verificados_user', JSON.stringify(modelUser));
+      // Passar usuário completo para onLogin
+      onLogin(modelUser);
+      setLoading(false);
+      navigate('/dashboard');
+      return;
+    }
+
+    // Se não encontrou nem admin nem modelo
+    setError('E-mail ou senha incorretos.');
+    setLoading(false);
   };
 
   return (
@@ -73,16 +122,24 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               <input 
                 type="password" 
                 placeholder="••••••••" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="rounded-xl border border-white/10 bg-[#1c2127] p-4 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 required
               />
             </div>
             
+            {error && (
+              <p className="text-xs text-red-400 font-bold text-center">
+                {error}
+              </p>
+            )}
             <button 
               type="submit" 
-              className="mt-4 rounded-xl bg-blue-600 py-4 text-sm font-black text-white shadow-2xl shadow-blue-900/40 hover:bg-blue-500 transition-all active:scale-95 uppercase tracking-widest italic"
+              disabled={loading}
+              className="mt-4 rounded-xl bg-blue-600 py-4 text-sm font-black text-white shadow-2xl shadow-blue-900/40 hover:bg-blue-500 transition-all active:scale-95 uppercase tracking-widest italic disabled:opacity-50"
             >
-              Acessar Painel
+              {loading ? 'Entrando...' : 'Acessar Painel'}
             </button>
           </form>
 
@@ -98,8 +155,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           </div>
           
           <div className="p-4 rounded-xl bg-white/5 border border-white/5 text-center">
-            <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">Acesso Admin (Demo)</p>
-            <p className="text-[10px] text-slate-500">Use um e-mail com a palavra <span className="text-blue-500">"admin"</span> para entrar como administrador.</p>
+            <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">Acesso ao Sistema</p>
+            <p className="text-[10px] text-slate-500">Utilize o e-mail e senha cadastrados. Modelos acessam o painel pessoal e administradores o painel admin.</p>
           </div>
         </div>
       </div>

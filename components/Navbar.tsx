@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { User } from '../types';
 
 interface NavbarProps {
@@ -10,6 +10,9 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#101922]/80 backdrop-blur-md">
@@ -20,8 +23,22 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
         </Link>
 
         <nav className="hidden md:flex items-center gap-8">
-          <Link to="/" className="text-xs font-black uppercase tracking-widest text-white transition-colors">Modelos</Link>
-          <Link to="/info" className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors">Como Funciona</Link>
+          <Link 
+            to="/" 
+            className={`text-xs font-black uppercase tracking-widest transition-colors ${
+              isActive('/') ? 'text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Modelos
+          </Link>
+          <Link 
+            to="/info" 
+            className={`text-xs font-black uppercase tracking-widest transition-colors ${
+              isActive('/info') ? 'text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Como Funciona
+          </Link>
         </nav>
 
         <div className="flex items-center gap-4">

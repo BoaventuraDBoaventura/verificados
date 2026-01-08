@@ -1,36 +1,143 @@
 
-import React, { useState } from 'react';
-import { MOCK_MODELS, INITIAL_CATEGORIES } from '../constants';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { VerificationStatus, Model } from '../types';
+import { supabase } from '../supabaseClient';
 
 const AdminDashboardPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'verificacoes' | 'modelos' | 'categorias' | 'financeiro'>('overview');
-  const [models, setModels] = useState<Model[]>(MOCK_MODELS);
-  const [categories, setCategories] = useState<string[]>(INITIAL_CATEGORIES);
+  const [models, setModels] = useState<Model[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [newCategory, setNewCategory] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+
+      // Carregar modelos
+      const { data: modelsData, error: modelsError } = await supabase
+        .from('models')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!modelsError && modelsData) {
+        const mappedModels: Model[] = modelsData.map((row: any) => ({
+          id: row.id,
+          artisticName: row.artistic_name,
+          age: row.age,
+          location: `${row.city}, ${row.province}`,
+          categories: row.categories || [],
+          bio: row.bio || '',
+          profileImage:
+            row.profile_image ||
+            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop',
+          previewVideos: row.preview_videos || [],
+          galleryImages: row.gallery_images || [],
+          phoneNumber: row.phone_number,
+          isVerified: row.is_verified ?? row.status === 'Aprovado',
+          status:
+            row.status === VerificationStatus.APPROVED
+              ? VerificationStatus.APPROVED
+              : row.status === VerificationStatus.REJECTED
+              ? VerificationStatus.REJECTED
+              : row.status === VerificationStatus.UNVERIFIED
+              ? VerificationStatus.UNVERIFIED
+              : VerificationStatus.PENDING,
+          height: row.height ?? undefined,
+          weight: row.weight ?? undefined,
+          waist: row.waist ?? undefined,
+          bust: row.bust ?? undefined,
+          eyes: row.eyes ?? undefined,
+          hair: row.hair ?? undefined,
+          shoeSize: row.shoe_size ?? undefined,
+          verificationVideo: row.verification_video || null
+        }));
+        setModels(mappedModels);
+      } else if (modelsError) {
+        console.error('Erro ao carregar modelos:', modelsError);
+      }
+
+      // Carregar categorias
+      const { data: catData, error: catError } = await supabase
+        .from('categories')
+        .select('name')
+        .order('name', { ascending: true });
+
+      if (!catError && catData) {
+        setCategories(catData.map((c: any) => c.name as string));
+      } else if (catError) {
+        console.error('Erro ao carregar categorias:', catError);
+      }
+
+      setLoading(false);
+    };
+
+    fetchData();
+  }, []);
 
   const stats = {
     totalModels: models.length,
     pending: models.filter(m => m.status === VerificationStatus.PENDING).length,
     verified: models.filter(m => m.isVerified).length,
-    revenue: "42.800 MT",
-    growth: "+14%"
+    revenue: `${models.filter(m => m.isVerified).length * 200} MT`,
+    growth: '+14%'
   };
 
-  const handleUpdateStatus = (id: string, newStatus: VerificationStatus) => {
-    setModels(prev => prev.map(m => m.id === id ? { ...m, status: newStatus, isVerified: newStatus === VerificationStatus.APPROVED } : m));
-  };
+  const handleUpdateStatus = async (id: string, newStatus: VerificationStatus) => {
+    const isVerified = newStatus === VerificationStatus.APPROVED;
 
-  const handleAddCategory = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newCategory.trim() && !categories.includes(newCategory.trim())) {
-      setCategories([...categories, newCategory.trim()]);
-      setNewCategory('');
+    const { error } = await supabase
+      .from('models')
+      .update({
+        status: newStatus,
+        is_verified: isVerified
+      })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Erro ao atualizar status do modelo:', error);
+      return;
     }
+
+    setModels(prev =>
+      prev.map(m =>
+        m.id === id ? { ...m, status: newStatus, isVerified } : m
+      )
+    );
   };
 
-  const handleRemoveCategory = (catToRemove: string) => {
-    setCategories(categories.filter(cat => cat !== catToRemove));
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newCategory.trim();
+    if (!trimmed || categories.includes(trimmed)) return;
+
+    const { error } = await supabase
+      .from('categories')
+      .insert({ name: trimmed });
+
+    if (error) {
+      console.error('Erro ao adicionar categoria:', error);
+      return;
+    }
+
+    setCategories(prev => [...prev, trimmed]);
+    setNewCategory('');
+  };
+
+  const handleRemoveCategory = async (catToRemove: string) => {
+    const { error } = await supabase
+      .from('categories')
+      .delete()
+      .eq('name', catToRemove);
+
+    if (error) {
+      console.error('Erro ao remover categoria:', error);
+      return;
+    }
+
+    setCategories(prev => prev.filter(cat => cat !== catToRemove));
   };
 
   return (
@@ -292,26 +399,59 @@ const AdminDashboardPage: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                    <button className="w-full py-5 bg-blue-600/10 border border-blue-600/20 text-blue-500 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center gap-3">
-                      <span className="material-symbols-outlined">play_circle</span>
-                      Vídeo de Prova
-                    </button>
+                    {model.verificationVideo ? (
+                      <div className="space-y-3">
+                        <div className="aspect-video rounded-[1.5rem] overflow-hidden border-2 border-blue-500/20 bg-black relative group">
+                          <video 
+                            src={model.verificationVideo} 
+                            controls 
+                            className="w-full h-full object-contain"
+                            preload="metadata"
+                          >
+                            Seu navegador não suporta vídeo HTML5.
+                          </video>
+                          <button
+                            onClick={() => setSelectedVideo(model.verificationVideo || null)}
+                            className="absolute top-3 right-3 size-10 bg-black/70 backdrop-blur-sm rounded-xl flex items-center justify-center text-white hover:bg-black/90 transition-all opacity-0 group-hover:opacity-100"
+                            title="Abrir em tela cheia"
+                          >
+                            <span className="material-symbols-outlined text-lg">fullscreen</span>
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2 text-[9px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-3 py-2 rounded-xl">
+                          <span className="material-symbols-outlined text-xs">check_circle</span>
+                          Vídeo Enviado
+                        </div>
+                      </div>
+                    ) : (
+                      <button className="w-full py-5 bg-slate-800/50 border border-slate-700/50 text-slate-500 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-3">
+                        <span className="material-symbols-outlined">video_library_off</span>
+                        Sem Vídeo
+                      </button>
+                    )}
                   </div>
                   
                   {/* Lado Direito: Dados e Ações */}
                   <div className="flex-grow flex flex-col">
                     <div className="flex justify-between items-start mb-10">
                       <div>
-                        <h3 className="text-3xl font-black uppercase italic tracking-tighter mb-2">{model.artisticName}</h3>
+                        <Link 
+                          to={`/perfil/${model.id}`}
+                          className="block group"
+                        >
+                          <h3 className="text-3xl font-black uppercase italic tracking-tighter mb-2 group-hover:text-blue-500 transition-colors">{model.artisticName}</h3>
+                        </Link>
                         <div className="flex items-center gap-3">
                           <span className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white/5 px-3 py-1 rounded-full">
                             <span className="material-symbols-outlined text-xs">location_on</span>
                             {model.location}
                           </span>
                           {/* Fix: changed model.category to model.categories[0] to match Model interface */}
-                          <span className="flex items-center gap-1.5 text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-500/5 px-3 py-1 rounded-full border border-blue-500/10">
-                            {model.categories[0]}
-                          </span>
+                          {model.categories && model.categories.length > 0 && (
+                            <span className="flex items-center gap-1.5 text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-500/5 px-3 py-1 rounded-full border border-blue-500/10">
+                              {model.categories[0]}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">
@@ -364,8 +504,126 @@ const AdminDashboardPage: React.FC = () => {
           </div>
         )}
         
-        {/* Outras abas (modelos, financeiro) seguiriam o mesmo padrão */}
+        {activeTab === 'modelos' && (
+          <div className="animate-in slide-in-from-bottom-6 duration-700 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {models.map(model => (
+                <div key={model.id} className="bg-[#0d1218] border border-white/5 rounded-2xl p-4 group hover:border-blue-500/30 transition-all shadow-lg">
+                  {/* Imagem de Perfil */}
+                  <div className="aspect-[3/4] rounded-xl overflow-hidden relative mb-3 border-2 border-white/5">
+                    <img src={model.profileImage} className="w-full h-full object-cover" alt={model.artisticName} />
+                    <div className="absolute top-2 right-2">
+                      {model.isVerified ? (
+                        <span className="px-2 py-1 bg-emerald-500/90 backdrop-blur-sm rounded-lg text-[8px] font-black text-white uppercase flex items-center gap-1">
+                          <span className="material-symbols-outlined text-xs">verified</span>
+                          Verificado
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-amber-500/90 backdrop-blur-sm rounded-lg text-[8px] font-black text-white uppercase">
+                          Pendente
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Informações */}
+                  <div className="space-y-2">
+                    <Link 
+                      to={`/perfil/${model.id}`}
+                      className="block group"
+                    >
+                      <h3 className="text-sm font-black uppercase italic tracking-tighter group-hover:text-blue-500 transition-colors truncate">{model.artisticName}</h3>
+                    </Link>
+                    <div className="flex items-center gap-2 text-[9px] text-slate-500 font-bold">
+                      <span className="material-symbols-outlined text-xs">location_on</span>
+                      <span className="truncate">{model.location}</span>
+                    </div>
+                    {model.categories && model.categories.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {model.categories.slice(0, 2).map((cat, idx) => (
+                          <span key={idx} className="text-[8px] font-black text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/10">
+                            {cat}
+                          </span>
+                        ))}
+                        {model.categories.length > 2 && (
+                          <span className="text-[8px] font-black text-slate-500 uppercase">+{model.categories.length - 2}</span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Medidas resumidas */}
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+                      <div>
+                        <span className="text-[8px] font-black text-slate-600 uppercase">Idade</span>
+                        <p className="text-xs font-black">{model.age}</p>
+                      </div>
+                      <div>
+                        <span className="text-[8px] font-black text-slate-600 uppercase">Altura</span>
+                        <p className="text-xs font-black">{model.height || 'N/A'}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Ações */}
+                    <div className="flex gap-2 pt-2">
+                      <Link
+                        to={`/perfil/${model.id}`}
+                        className="flex-1 py-2 bg-blue-600/10 border border-blue-500/20 text-blue-500 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-xs">visibility</span>
+                        Ver
+                      </Link>
+                      {model.status === VerificationStatus.PENDING && (
+                        <button 
+                          onClick={() => handleUpdateStatus(model.id, VerificationStatus.APPROVED)}
+                          className="px-3 py-2 bg-emerald-600/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-[9px] font-black uppercase hover:bg-emerald-600 hover:text-white transition-all"
+                          title="Aprovar"
+                        >
+                          <span className="material-symbols-outlined text-xs">check</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {models.length === 0 && (
+              <div className="text-center py-20 text-slate-500">
+                <span className="material-symbols-outlined text-6xl mb-4 block">groups_off</span>
+                <p className="text-sm font-bold">Nenhum modelo cadastrado</p>
+              </div>
+            )}
+          </div>
+        )}
       </main>
+
+      {/* Modal de Vídeo em Tela Cheia */}
+      {selectedVideo && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-6"
+          onClick={() => setSelectedVideo(null)}
+        >
+          <div 
+            className="relative w-full max-w-6xl aspect-video bg-black rounded-2xl overflow-hidden border-2 border-white/10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setSelectedVideo(null)}
+              className="absolute top-4 right-4 size-12 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center text-white hover:bg-white/20 transition-all z-10"
+            >
+              <span className="material-symbols-outlined text-2xl">close</span>
+            </button>
+            <video 
+              src={selectedVideo} 
+              controls 
+              autoPlay
+              className="w-full h-full object-contain"
+            >
+              Seu navegador não suporta vídeo HTML5.
+            </video>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

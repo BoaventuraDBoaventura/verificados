@@ -1,7 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MOCK_MODELS, MOZAMBIQUE_PROVINCES, INITIAL_CATEGORIES } from '../constants';
+import { MOZAMBIQUE_PROVINCES } from '../constants';
+import { supabase } from '../supabaseClient';
+import { Model, VerificationStatus } from '../types';
 
 const GalleryPage: React.FC = () => {
   const [filter, setFilter] = useState('');
@@ -9,10 +11,69 @@ const GalleryPage: React.FC = () => {
   const [activeProvince, setActiveProvince] = useState('Todas');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isProvinceModalOpen, setIsProvinceModalOpen] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(6);
+  const [visibleCount, setVisibleCount] = useState(12);
+  const [categories, setCategories] = useState<string[]>(['Todas']);
+  const [models, setModels] = useState<Model[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const categories = ['Todas', ...INITIAL_CATEGORIES];
   const provinces = ['Todas', ...MOZAMBIQUE_PROVINCES];
+
+  // Carregar modelos e categorias do banco de dados
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      
+      // Carregar modelos verificados
+      const { data: modelsData, error: modelsError } = await supabase
+        .from('models')
+        .select('*')
+        .eq('is_verified', true)
+        .eq('status', 'Aprovado')
+        .order('created_at', { ascending: false });
+
+      if (!modelsError && modelsData) {
+        const mappedModels: Model[] = modelsData.map((row: any) => ({
+          id: row.id,
+          artisticName: row.artistic_name,
+          age: row.age,
+          location: `${row.city}, ${row.province}`,
+          categories: row.categories || [],
+          bio: row.bio || '',
+          profileImage: row.profile_image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop',
+          previewVideos: row.preview_videos || [],
+          galleryImages: row.gallery_images || [],
+          phoneNumber: row.phone_number,
+          isVerified: row.is_verified || false,
+          status: row.status === 'Aprovado' ? VerificationStatus.APPROVED : 
+                  row.status === 'Em Verificação' ? VerificationStatus.PENDING :
+                  row.status === 'Rejeitado' ? VerificationStatus.REJECTED :
+                  VerificationStatus.UNVERIFIED,
+          height: row.height,
+          weight: row.weight,
+          waist: row.waist,
+          bust: row.bust,
+          eyes: row.eyes,
+          hair: row.hair,
+          shoeSize: row.shoe_size
+        }));
+        setModels(mappedModels);
+      }
+
+      // Carregar categorias
+      const { data: catData, error: catError } = await supabase
+        .from('categories')
+        .select('name')
+        .order('name', { ascending: true });
+
+      if (!catError && catData) {
+        setCategories(['Todas', ...catData.map((c: any) => c.name as string)]);
+      }
+
+      setLoading(false);
+    };
+
+    fetchData();
+  }, []);
 
   // Prevent scroll when modal is open
   useEffect(() => {
@@ -24,7 +85,7 @@ const GalleryPage: React.FC = () => {
     return () => { document.body.style.overflow = 'unset'; };
   }, [isProvinceModalOpen]);
 
-  const filteredModels = MOCK_MODELS.filter(m => {
+  const filteredModels = models.filter(m => {
     const matchesSearch = m.location.toLowerCase().includes(filter.toLowerCase()) || 
                          m.artisticName.toLowerCase().includes(filter.toLowerCase());
     const matchesCategory = activeCategory === 'Todas' || m.categories.includes(activeCategory);
@@ -41,17 +102,17 @@ const GalleryPage: React.FC = () => {
     setFilter('');
     setActiveCategory('Todas');
     setActiveProvince('Todas');
-    setVisibleCount(6);
+    setVisibleCount(12);
   };
 
   const handleProvinceSelect = (prov: string) => {
     setActiveProvince(prov);
     setIsProvinceModalOpen(false);
-    setVisibleCount(6);
+    setVisibleCount(12);
   };
 
   const handleLoadMore = () => {
-    setVisibleCount(prev => prev + 6);
+    setVisibleCount(prev => prev + 12);
   };
 
   return (
@@ -105,7 +166,7 @@ const GalleryPage: React.FC = () => {
           
           <div className="bg-black/20 p-6 flex justify-center">
              <button 
-                onClick={() => { setActiveProvince('Todas'); setIsProvinceModalOpen(false); setVisibleCount(6); }}
+                onClick={() => { setActiveProvince('Todas'); setIsProvinceModalOpen(false); setVisibleCount(12); }}
                 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-white transition-colors"
              >
                 Limpar Localização
@@ -141,7 +202,7 @@ const GalleryPage: React.FC = () => {
               {categories.map(cat => (
                 <button
                   key={cat}
-                  onClick={() => { setActiveCategory(cat); setVisibleCount(6); }}
+                  onClick={() => { setActiveCategory(cat); setVisibleCount(12); }}
                   className={`px-3 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border ${
                     activeCategory === cat 
                       ? 'bg-blue-600 border-blue-500 text-white' 
@@ -188,7 +249,7 @@ const GalleryPage: React.FC = () => {
       </aside>
 
       {/* Header Minimalista */}
-      <div className="pt-12 pb-4 flex justify-center px-4">
+      <div className="pt-6 pb-3 flex justify-center px-4">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
           <span className="material-symbols-outlined filled text-blue-500 text-sm">verified</span>
           <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">Perfis Verificados</span>
@@ -196,17 +257,17 @@ const GalleryPage: React.FC = () => {
       </div>
 
       {/* Interface de Filtros & Busca Sticky */}
-      <section className="bg-[#101922] border-b border-white/5 py-4 px-4 sticky top-[64px] z-50 backdrop-blur-md bg-[#101922]/90">
+      <section className="bg-[#101922] border-b border-white/5 py-3 px-4 sticky top-[64px] z-50 backdrop-blur-md bg-[#101922]/90">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-6 justify-between">
           
-          <div className="flex items-center gap-6 overflow-x-auto no-scrollbar w-full md:w-auto">
+          <div className="flex flex-wrap items-center gap-4 md:gap-6 w-full md:w-auto">
             {/* Categorias (Desktop) */}
-            <div className="hidden md:flex items-center gap-2 shrink-0">
-              <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 mr-2">Categorias:</span>
+            <div className="hidden md:flex items-center gap-2 flex-wrap">
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 shrink-0">Categorias:</span>
               {categories.map(cat => (
                 <button
                   key={cat}
-                  onClick={() => { setActiveCategory(cat); setVisibleCount(6); }}
+                  onClick={() => { setActiveCategory(cat); setVisibleCount(12); }}
                   className={`px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
                     activeCategory === cat 
                       ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/40' 
@@ -219,7 +280,7 @@ const GalleryPage: React.FC = () => {
             </div>
 
             {/* Província Popup Trigger (Desktop) */}
-            <div className="hidden md:flex items-center gap-2 relative">
+            <div className="hidden md:flex items-center gap-2 relative shrink-0">
               <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 mr-1">Local:</span>
               <button 
                 onClick={() => setIsProvinceModalOpen(true)}
@@ -244,7 +305,7 @@ const GalleryPage: React.FC = () => {
                 placeholder="Nome ou local..."
                 className="w-full pl-10 pr-4 py-3 rounded-xl border border-white/10 bg-[#1c2127] text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-600"
                 value={filter}
-                onChange={(e) => { setFilter(e.target.value); setVisibleCount(6); }}
+                onChange={(e) => { setFilter(e.target.value); setVisibleCount(12); }}
               />
             </div>
             
@@ -259,29 +320,18 @@ const GalleryPage: React.FC = () => {
       </section>
 
       {/* Grade de Modelos */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-12">
-        <div className="flex flex-col items-center mb-12">
-          <h2 className="text-3xl font-black font-display uppercase italic tracking-tighter mb-2">Modelos</h2>
-          <div className="h-1 w-12 bg-blue-600 rounded-full"></div>
-          { (activeCategory !== 'Todas' || activeProvince !== 'Todas') && (
-            <div className="flex items-center gap-2 mt-4 px-4 py-1.5 rounded-full bg-white/5 border border-white/5">
-              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Ativo:</span>
-              <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">
-                {activeCategory !== 'Todas' && <span>{activeCategory}</span>} 
-                {activeCategory !== 'Todas' && activeProvince !== 'Todas' && <span className="text-slate-600 mx-1">•</span>}
-                {activeProvince !== 'Todas' && <span>{activeProvince}</span>}
-              </p>
-              <button onClick={clearFilters} className="material-symbols-outlined text-xs text-slate-500 hover:text-white transition-colors ml-1">close</button>
-            </div>
-          )}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-4">
+        <div className="flex flex-col items-center mb-6">
+          <h2 className="text-2xl font-black font-display uppercase italic tracking-tighter mb-2">Modelos</h2>
+          <div className="h-0.5 w-10 bg-blue-600 rounded-full"></div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10 justify-items-center">
+        <div className="flex flex-wrap justify-center gap-4">
           {displayedModels.map((model) => (
             <Link 
               key={model.id} 
               to={`/perfil/${model.id}`}
-              className="group relative w-full max-w-[300px] flex flex-col overflow-hidden rounded-[2.5rem] bg-[#1c2127] border border-white/5 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:shadow-blue-500/10"
+              className="group relative w-[180px] flex flex-col overflow-hidden rounded-2xl bg-[#1c2127] border border-white/5 transition-all duration-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/10"
             >
               <div className="aspect-[3/4] relative overflow-hidden">
                 <img 
@@ -292,32 +342,32 @@ const GalleryPage: React.FC = () => {
                 
                 <div className="absolute inset-0 bg-gradient-to-t from-[#101922] via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
                 
-                <div className="absolute top-4 left-4">
-                  <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-black/40 backdrop-blur-md border border-white/10">
-                    <span className="material-symbols-outlined filled text-blue-500 text-[12px]">verified</span>
-                    <span className="text-[8px] font-black text-white uppercase tracking-widest">Verificado</span>
+                <div className="absolute top-2 left-2">
+                  <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-black/40 backdrop-blur-md border border-white/10">
+                    <span className="material-symbols-outlined filled text-blue-500 text-[10px]">verified</span>
+                    <span className="text-[7px] font-black text-white uppercase tracking-widest">Verificado</span>
                   </div>
                 </div>
 
-                <div className="absolute bottom-0 left-0 w-full p-6 text-center">
-                  <h3 className="text-xl font-black text-white mb-1 uppercase tracking-tighter group-hover:text-blue-400 transition-colors">
+                <div className="absolute bottom-0 left-0 w-full p-3 text-center">
+                  <h3 className="text-sm font-black text-white mb-0.5 uppercase tracking-tighter group-hover:text-blue-400 transition-colors truncate">
                     {model.artisticName}
                   </h3>
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                      <span className="material-symbols-outlined text-xs">location_on</span>
-                      {model.location}
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-0.5 truncate w-full justify-center">
+                      <span className="material-symbols-outlined text-[10px]">location_on</span>
+                      <span className="truncate">{model.location}</span>
                     </span>
-                    <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest">
+                    <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest truncate">
                       {model.categories[0]} {model.categories.length > 1 && `+${model.categories.length - 1}`}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="px-6 py-3 bg-[#111418]/50 border-t border-white/5 flex justify-center">
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">
-                  Ver Portfólio <span className="material-symbols-outlined text-[10px]">arrow_forward</span>
+              <div className="px-3 py-2 bg-[#111418]/50 border-t border-white/5 flex justify-center">
+                <span className="text-[8px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">
+                  Ver <span className="material-symbols-outlined text-[9px]">arrow_forward</span>
                 </span>
               </div>
             </Link>
@@ -326,13 +376,13 @@ const GalleryPage: React.FC = () => {
 
         {/* Empty State */}
         {displayedModels.length === 0 && (
-          <div className="py-24 flex flex-col items-center justify-center text-center animate-in fade-in duration-500">
-            <span className="material-symbols-outlined text-5xl text-slate-700 mb-4">location_off</span>
-            <h3 className="text-lg font-bold">Nenhum talento encontrado</h3>
-            <p className="text-slate-500 text-sm mt-1 max-w-xs mx-auto">Não encontramos modelos em <span className="text-blue-500">{activeProvince}</span> com os filtros selecionados.</p>
+          <div className="py-8 flex flex-col items-center justify-center text-center animate-in fade-in duration-500">
+            <span className="material-symbols-outlined text-4xl text-slate-700 mb-3">location_off</span>
+            <h3 className="text-base font-bold">Nenhum talento encontrado</h3>
+            <p className="text-slate-500 text-xs mt-1 max-w-xs mx-auto">Não encontramos modelos em <span className="text-blue-500">{activeProvince}</span> com os filtros selecionados.</p>
             <button 
               onClick={clearFilters}
-              className="mt-6 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:underline"
+              className="mt-4 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:underline"
             >
               Resetar Filtros
             </button>
@@ -341,7 +391,7 @@ const GalleryPage: React.FC = () => {
 
         {/* Load More */}
         {filteredModels.length > visibleCount && (
-          <div className="mt-20 flex flex-col items-center gap-4">
+          <div className="mt-8 flex flex-col items-center gap-4">
             <button 
               onClick={handleLoadMore}
               className="flex items-center gap-2 rounded-full border border-white/10 px-8 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all active:scale-95 group"
