@@ -33,7 +33,8 @@ const EditProfilePage: React.FC<EditProfilePageProps> = ({ user }) => {
         profile_image: '',
         phone_number: '',
         gallery_images: [],
-        preview_videos: []
+        preview_videos: [],
+        services: []
     });
     const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
     const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
@@ -86,7 +87,8 @@ const EditProfilePage: React.FC<EditProfilePageProps> = ({ user }) => {
                             profile_image: modelData.profile_image || '',
                             phone_number: modelData.phone_number || '',
                             gallery_images: modelData.gallery_images || [],
-                            preview_videos: modelData.preview_videos || []
+                            preview_videos: modelData.preview_videos || [],
+                            services: modelData.services || []
                         });
                         if (modelData.profile_image) {
                             setProfileImagePreview(modelData.profile_image);
@@ -281,6 +283,27 @@ const EditProfilePage: React.FC<EditProfilePageProps> = ({ user }) => {
         }
     };
 
+    // Gerenciamento de Serviços
+    const handleServiceChange = (index: number, field: 'name' | 'price', value: string) => {
+        const updatedServices = [...(formData.services || [])];
+        updatedServices[index] = { ...updatedServices[index], [field]: value };
+        setFormData((prev: any) => ({ ...prev, services: updatedServices }));
+    };
+
+    const addService = () => {
+        setFormData((prev: any) => ({
+            ...prev,
+            services: [...(prev.services || []), { name: '', price: '' }]
+        }));
+    };
+
+    const removeService = (index: number) => {
+        setFormData((prev: any) => ({
+            ...prev,
+            services: prev.services.filter((_: any, i: number) => i !== index)
+        }));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -326,7 +349,8 @@ const EditProfilePage: React.FC<EditProfilePageProps> = ({ user }) => {
                 bust: formData.bust ? String(formData.bust).trim() : '',
                 eyes: formData.eyes ? String(formData.eyes).trim() : '',
                 hair: formData.hair ? String(formData.hair).trim() : '',
-                shoe_size: formData.shoe_size ? String(formData.shoe_size).trim() : ''
+                shoe_size: formData.shoe_size ? String(formData.shoe_size).trim() : '',
+                services: Array.isArray(formData.services) ? formData.services.filter((s: any) => s.name && s.price) : []
             };
 
             console.log('📡 Iniciando processo de salvamento...');
@@ -760,6 +784,56 @@ const EditProfilePage: React.FC<EditProfilePageProps> = ({ user }) => {
                                     />
                                 </div>
                             ))}
+                        </div>
+                    </section>
+
+                    {/* Serviços e Preços */}
+                    <section className="rounded-2xl bg-[#1c2127] p-4 md:p-6 border border-white/5 shadow-xl">
+                        <h2 className="text-lg font-bold border-b border-white/5 pb-3 mb-4 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-blue-500 text-lg">payments</span>
+                            Serviços e Preços
+                        </h2>
+                        <div className="flex flex-col gap-4">
+                            {(formData.services || []).map((service: any, index: number) => (
+                                <div key={index} className="grid grid-cols-[1fr_120px_auto] gap-3 items-end">
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-500">Nome do Serviço</label>
+                                        <input
+                                            type="text"
+                                            value={service.name}
+                                            onChange={(e) => handleServiceChange(index, 'name', e.target.value)}
+                                            placeholder="Ex: Encontro Casual"
+                                            className="rounded-xl border border-white/10 bg-[#111418] p-2.5 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-500">Preço (MZN)</label>
+                                        <input
+                                            type="text"
+                                            value={service.price}
+                                            onChange={(e) => handleServiceChange(index, 'price', e.target.value)}
+                                            placeholder="2000"
+                                            className="rounded-xl border border-white/10 bg-[#111418] p-2.5 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeService(index)}
+                                        className="mb-1 size-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors"
+                                    >
+                                        <span className="material-symbols-outlined">delete</span>
+                                    </button>
+                                </div>
+                            ))}
+
+                            <button
+                                type="button"
+                                onClick={addService}
+                                className="w-full py-3 rounded-xl border border-dashed border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white hover:border-blue-500/50 transition-all flex items-center justify-center gap-2 uppercase font-black text-xs tracking-widest"
+                            >
+                                <span className="material-symbols-outlined text-xl">add</span>
+                                Adicionar Novo Serviço
+                            </button>
                         </div>
                     </section>
 

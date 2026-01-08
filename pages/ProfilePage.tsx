@@ -11,7 +11,7 @@ const ProfilePage: React.FC = () => {
   const [model, setModel] = useState<Model | null>(null);
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'fotos' | 'videos' | 'detalhes' | 'avaliacoes'>('fotos');
+  const [activeTab, setActiveTab] = useState<'fotos' | 'videos' | 'servicos' | 'avaliacoes'>('servicos');
 
   // Rating logic states
   const [ratingCodeInput, setRatingCodeInput] = useState('');
@@ -58,7 +58,8 @@ const ProfilePage: React.FC = () => {
       bust: data.bust || null,
       eyes: data.eyes || null,
       hair: data.hair || null,
-      shoeSize: data.shoe_size || null
+      shoeSize: data.shoe_size || null,
+      services: Array.isArray(data.services) ? data.services : []
     };
   };
 
@@ -399,30 +400,35 @@ const ProfilePage: React.FC = () => {
             {/* Profile Photo Card - Large on Mobile */}
             <div className="w-full lg:w-auto lg:max-w-[140px] shrink-0 flex justify-center lg:justify-start">
               <div className="w-full aspect-[3/4] sm:aspect-[3/4] lg:aspect-[3/4] max-h-[70vh] sm:max-h-[60vh] lg:max-h-none lg:w-[140px] rounded-none sm:rounded-lg overflow-hidden border-0 sm:border border-white/5 shadow-sm relative group">
-                {model.profileImage ? (
-                  <img
-                    src={`${model.profileImage}?t=${Date.now()}`}
-                    className="w-full h-full object-cover"
-                    alt={model.artisticName}
-                    onError={(e) => {
-                      console.error('❌ Erro ao carregar imagem:', model.profileImage);
-                      (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x600?text=Erro+ao+Carregar';
-                    }}
-                    onLoad={() => {
-                      console.log('✅ Imagem carregada:', model.profileImage);
-                    }}
-                    key={model.profileImage} // Força recarregar quando a URL mudar
-                  />
-                ) : (
-                  <div className="w-full h-full bg-[#1c2127] flex items-center justify-center">
-                    <span className="material-symbols-outlined text-6xl sm:text-8xl text-slate-700">person</span>
+                <button
+                  onClick={() => setSelectedImage(model.profileImage)}
+                  className="w-full h-full block cursor-pointer transition-opacity hover:opacity-90"
+                >
+                  {model.profileImage ? (
+                    <img
+                      src={`${model.profileImage}?t=${Date.now()}`}
+                      className="w-full h-full object-cover"
+                      alt={model.artisticName}
+                      onError={(e) => {
+                        console.error('❌ Erro ao carregar imagem:', model.profileImage);
+                        (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x600?text=Erro+ao+Carregar';
+                      }}
+                      onLoad={() => {
+                        console.log('✅ Imagem carregada:', model.profileImage);
+                      }}
+                      key={model.profileImage} // Força recarregar quando a URL mudar
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-[#1c2127] flex items-center justify-center">
+                      <span className="material-symbols-outlined text-6xl sm:text-8xl text-slate-700">person</span>
+                    </div>
+                  )}
+                  <div className="absolute top-2 right-2 sm:top-3 sm:right-3 pointer-events-none">
+                    <div className="size-8 sm:size-10 lg:size-6 rounded-full bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-white text-base sm:text-lg lg:text-xs">zoom_in</span>
+                    </div>
                   </div>
-                )}
-                <div className="absolute top-2 right-2 sm:top-3 sm:right-3">
-                  <div className="size-8 sm:size-10 lg:size-6 rounded-full bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-white text-base sm:text-lg lg:text-xs">zoom_in</span>
-                  </div>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -520,9 +526,9 @@ const ProfilePage: React.FC = () => {
           <div className="flex border-b border-white/10 gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-1">
             {
               [
+                { id: 'servicos', label: 'Serviços', icon: 'room_service' },
                 { id: 'fotos', label: 'Imagens', icon: 'photo_library' },
                 { id: 'videos', label: 'Vídeos', icon: 'videocam' },
-                { id: 'detalhes', label: 'Sobre & Medidas', icon: 'straighten' },
                 { id: 'avaliacoes', label: 'Avaliações', icon: 'stars' }
               ].map(tab => (
                 <button
@@ -618,30 +624,37 @@ const ProfilePage: React.FC = () => {
             }
 
             {
-              activeTab === 'detalhes' && (
+              activeTab === 'servicos' && (
                 <div className="flex flex-col gap-4 sm:gap-5 animate-in slide-in-from-bottom-4 duration-500">
+                  {/* Services Section */}
                   <section className="bg-[#1c2127] border border-white/5 p-4 sm:p-5 rounded-lg shadow-sm">
-                    <h3 className="text-xs sm:text-sm font-black uppercase tracking-[0.1em] mb-3 text-blue-500">Apresentação Profissional</h3>
-                    <p className="text-slate-300 leading-relaxed text-sm sm:text-base italic font-medium">
-                      "{model.bio}"
-                    </p>
-                  </section>
+                    <h3 className="text-xs sm:text-sm font-black uppercase tracking-[0.1em] mb-4 text-blue-500 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-lg">payments</span>
+                      Serviços
+                    </h3>
 
-                  <section>
-                    <h3 className="text-xs sm:text-sm font-black uppercase tracking-[0.1em] mb-4 text-slate-500">Ficha Técnica e Medidas</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
-                      {[
-                        { label: 'Idade', val: model.age ? `${model.age} anos` : 'Não informado', icon: 'cake' },
-                        { label: 'Altura', val: model.height || 'Não informado', icon: 'height' },
-                        { label: 'Peso', val: model.weight || 'Não informado', icon: 'fitness_center' }
-                      ].map(item => (
-                        <div key={item.label} className="bg-[#1c2127] border border-white/5 p-3 sm:p-4 rounded-lg flex flex-col items-center text-center group hover:border-blue-500/50 transition-all hover:-translate-y-1">
-                          <span className="material-symbols-outlined text-slate-600 mb-2 text-lg sm:text-xl group-hover:text-blue-500 transition-colors">{item.icon}</span>
-                          <span className="text-sm sm:text-base font-black text-white">{item.val}</span>
-                          <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">{item.label}</span>
-                        </div>
-                      ))}
-                    </div>
+                    {model.services && model.services.length > 0 ? (
+                      <div className="flex flex-col gap-2">
+                        {model.services.map((service, idx) => (
+                          <div key={idx} className="flex justify-between items-center p-2 sm:p-3 bg-black/20 rounded-lg border border-white/5 hover:border-blue-500/30 transition-all group">
+                            <div className="flex items-center gap-2 sm:gap-3">
+                              <div className="size-5 sm:size-6 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                                <span className="material-symbols-outlined text-[10px] sm:text-xs">check</span>
+                              </div>
+                              <span className="text-[10px] sm:text-xs font-bold text-slate-200 group-hover:text-white transition-colors uppercase tracking-wide">{service.name}</span>
+                            </div>
+                            <span className="text-[10px] sm:text-xs font-black text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                              {new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(Number(service.price))}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 border border-dashed border-white/10 rounded-lg">
+                        <span className="material-symbols-outlined text-3xl text-slate-600 mb-2">event_busy</span>
+                        <p className="text-slate-500 text-sm italic">Nenhum serviço listado publicamente.</p>
+                      </div>
+                    )}
                   </section>
                 </div>
               )
@@ -792,7 +805,7 @@ const ProfilePage: React.FC = () => {
         </div>
 
         {/* Right Sidebar: Sticky Call to Action */}
-        <aside className="lg:col-span-5 flex flex-col gap-4 sm:gap-5 lg:gap-5 order-first lg:order-last relative z-10">
+        <aside className="lg:col-span-5 flex flex-col gap-4 sm:gap-5 lg:gap-5 order-last lg:order-last relative z-10">
           <div className="lg:sticky lg:top-20 space-y-4 sm:space-y-5 lg:space-y-3">
 
             {/* Payment & Contact Card */}
@@ -879,15 +892,46 @@ const ProfilePage: React.FC = () => {
         >
           <button
             onClick={() => setSelectedImage(null)}
-            className="absolute top-2 right-2 sm:top-4 sm:right-4 size-10 sm:size-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-all z-10"
+            className="absolute top-2 right-2 sm:top-4 sm:right-4 size-10 sm:size-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-all z-20"
             title="Fechar"
           >
             <span className="material-symbols-outlined text-xl sm:text-2xl">close</span>
           </button>
+
+          {(model.galleryImages && model.galleryImages.length > 0) || model.profileImage ? (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const allImages = [model.profileImage, ...(model.galleryImages || [])].filter(Boolean);
+                  const currentIndex = allImages.indexOf(selectedImage);
+                  const prevIndex = (currentIndex - 1 + allImages.length) % allImages.length;
+                  setSelectedImage(allImages[prevIndex]);
+                }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 size-10 sm:size-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-all z-20"
+              >
+                <span className="material-symbols-outlined text-xl sm:text-2xl">chevron_left</span>
+              </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const allImages = [model.profileImage, ...(model.galleryImages || [])].filter(Boolean);
+                  const currentIndex = allImages.indexOf(selectedImage);
+                  const nextIndex = (currentIndex + 1) % allImages.length;
+                  setSelectedImage(allImages[nextIndex]);
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 size-10 sm:size-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-all z-20"
+              >
+                <span className="material-symbols-outlined text-xl sm:text-2xl">chevron_right</span>
+              </button>
+            </>
+          ) : null}
+
           <div className="max-w-7xl max-h-[95vh] sm:max-h-[90vh] w-full h-full flex items-center justify-center">
             <img
               src={selectedImage}
-              className="max-w-full max-h-full object-contain rounded-lg"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
               alt="Imagem ampliada"
               onClick={(e) => e.stopPropagation()}
             />

@@ -323,7 +323,7 @@ const GalleryPage: React.FC = () => {
           <div className="h-0.5 w-10 bg-blue-600 rounded-full"></div>
         </div>
 
-        <div className="grid grid-cols-1 sm:flex sm:flex-wrap justify-center gap-6">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-3 sm:gap-6">
           {displayedModels.map((model) => (
             <Link
               key={model.id}

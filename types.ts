@@ -21,6 +21,7 @@ export interface Model {
   isVerified: boolean;
   status: VerificationStatus;
   verificationVideo?: string | null;
+  services?: { name: string; price: number | string }[];
   // Technical Measures
   height?: string;
   weight?: string;
