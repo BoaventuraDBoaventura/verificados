@@ -5,6 +5,7 @@ import { User, VerificationStatus } from '../types';
 import { supabase } from '../supabaseClient';
 import { uploadFile } from '../utils/storage';
 import { useToast } from '../context/ToastContext';
+import { logger } from '../utils/logger';
 
 interface DashboardPageProps {
   user: User;
@@ -203,6 +204,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
         await new Promise(resolve => setTimeout(resolve, 500));
 
         showToast('Vídeo de verificação enviado com sucesso!', 'success');
+
+        // Log activity
+        logger.log(artisticName, 'Enviou vídeo de verificação', 'success');
+
         setVideoFile(null);
         setVideoPreview(null);
         setUploadingVideo(false);

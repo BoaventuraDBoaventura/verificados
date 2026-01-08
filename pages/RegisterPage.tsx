@@ -5,6 +5,7 @@ import { MOZAMBIQUE_PROVINCES } from '../constants';
 import { supabase } from '../supabaseClient';
 import { uploadFile } from '../utils/storage';
 import { useToast } from '../context/ToastContext';
+import { logger } from '../utils/logger';
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -127,6 +128,7 @@ const RegisterPage: React.FC = () => {
       }
 
       showToast('Cadastro realizado com sucesso! Bem-vindo(a).', 'success');
+      logger.log(artisticName, 'Novo registro de modelo', 'info');
       setLoading(false);
       navigate('/login');
     } catch (err: any) {

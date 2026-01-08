@@ -38,3 +38,11 @@ export interface User {
   modelId?: string;
   slug?: string;
 }
+
+export interface AdminLog {
+  id: string;
+  user_name: string;
+  action: string;
+  type: 'success' | 'payment' | 'danger' | 'info';
+  created_at: string;
+}

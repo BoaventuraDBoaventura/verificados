@@ -4,6 +4,26 @@ import { Link } from 'react-router-dom';
 import { VerificationStatus, Model } from '../types';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
+import { logger } from '../utils/logger';
+import { AdminLog } from '../types';
+
+function timeAgo(dateString: string) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + " anos atrás";
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + " meses atrás";
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + " dias atrás";
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + " horas atrás";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + " min atrás";
+    return "agora mesmo";
+}
 
 const AdminDashboardPage: React.FC = () => {
     const { showToast } = useToast();
@@ -13,6 +33,12 @@ const AdminDashboardPage: React.FC = () => {
     const [newCategory, setNewCategory] = useState('');
     const [loading, setLoading] = useState(false);
     const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+    const [logs, setLogs] = useState<AdminLog[]>([]);
+
+    const fetchLogs = async () => {
+        const recentLogs = await logger.getRecentLogs();
+        setLogs(recentLogs);
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -74,6 +100,9 @@ const AdminDashboardPage: React.FC = () => {
                 console.error('Erro ao carregar categorias:', catError);
             }
 
+
+            await fetchLogs();
+
             setLoading(false);
         };
 
@@ -106,6 +135,14 @@ const AdminDashboardPage: React.FC = () => {
         }
 
         showToast(`Modelo ${newStatus} com sucesso!`, 'success');
+
+        await logger.log(
+            'Admin',
+            `Alterou status do modelo para ${newStatus}`,
+            isVerified ? 'success' : 'danger'
+        );
+        fetchLogs();
+
         setModels(prev =>
             prev.map(m =>
                 m.id === id ? { ...m, status: newStatus, isVerified } : m
@@ -129,6 +166,8 @@ const AdminDashboardPage: React.FC = () => {
         }
 
         showToast('Categoria adicionada com sucesso!', 'success');
+        await logger.log('Admin', `Criou nova categoria: ${trimmed}`, 'info');
+        fetchLogs();
         setCategories(prev => [...prev, trimmed]);
         setNewCategory('');
     };
@@ -146,6 +185,8 @@ const AdminDashboardPage: React.FC = () => {
         }
 
         showToast('Categoria removida com sucesso!', 'success');
+        await logger.log('Admin', `Removeu categoria: ${catToRemove}`, 'danger');
+        fetchLogs();
         setCategories(prev => prev.filter(cat => cat !== catToRemove));
     };
 
@@ -194,6 +235,8 @@ const AdminDashboardPage: React.FC = () => {
 
             setModels(prev => prev.filter(m => m.id !== id));
             showToast('Modelo e todos os seus dados foram eliminados.', 'success');
+            await logger.log('Admin', `Eliminou permanentemente o modelo: ${name}`, 'danger');
+            fetchLogs();
         } catch (err) {
             console.error('Erro inesperado:', err);
             showToast('Ocorreu um erro inesperado ao eliminar.', 'error');
@@ -223,6 +266,8 @@ const AdminDashboardPage: React.FC = () => {
             } else {
                 setModels([]);
                 showToast('Todos os modelos foram eliminados com sucesso.', 'success');
+                await logger.log('Admin', 'EXECUTOU LIMPEZA TOTAL DA BASE DE DADOS', 'danger');
+                fetchLogs();
             }
         } catch (err) {
             console.error('Erro inesperado:', err);
@@ -241,8 +286,8 @@ const AdminDashboardPage: React.FC = () => {
                             <span className="material-symbols-outlined text-white text-2xl filled">shield_person</span>
                         </div>
                         <div className="flex flex-col">
-                            <span className="font-black uppercase tracking-tighter text-base italic">ADMIN</span>
-                            <span className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em]">Verificados Hub</span>
+                            <span className="font-black uppercase tracking-tighter text-sm italic">ADMIN</span>
+                            <span className="text-[8px] font-black text-blue-500 uppercase tracking-[0.2em]">Verificados Hub</span>
                         </div>
                     </div>
                 </div>
@@ -258,7 +303,7 @@ const AdminDashboardPage: React.FC = () => {
                         <button
                             key={item.id}
                             onClick={() => setActiveTab(item.id as any)}
-                            className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all group ${activeTab === item.id
+                            className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all group ${activeTab === item.id
                                 ? 'bg-blue-600 text-white shadow-xl shadow-blue-900/20'
                                 : 'text-slate-500 hover:bg-white/5 hover:text-white'
                                 }`}
@@ -268,7 +313,7 @@ const AdminDashboardPage: React.FC = () => {
                                 {item.label}
                             </div>
                             {item.badge ? (
-                                <span className={`px-2 py-0.5 rounded-full text-[9px] ${activeTab === item.id ? 'bg-white text-blue-600' : 'bg-blue-600/10 text-blue-500'}`}>
+                                <span className={`px-2 py-0.5 rounded-full text-[8px] ${activeTab === item.id ? 'bg-white text-blue-600' : 'bg-blue-600/10 text-blue-500'}`}>
                                     {item.badge}
                                 </span>
                             ) : null}
@@ -281,14 +326,14 @@ const AdminDashboardPage: React.FC = () => {
                         <div className="flex items-center gap-3">
                             <div className="size-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-black text-xs">AD</div>
                             <div className="flex flex-col">
-                                <span className="text-[10px] font-black uppercase tracking-wider">Admin Principal</span>
+                                <span className="text-[9px] font-black uppercase tracking-wider">Admin Principal</span>
                                 <div className="flex items-center gap-1.5">
                                     <span className="size-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                                    <span className="text-[8px] text-slate-500 font-bold uppercase">Sessão Ativa</span>
+                                    <span className="text-[7px] text-slate-500 font-bold uppercase">Sessão Ativa</span>
                                 </div>
                             </div>
                         </div>
-                        <button className="w-full py-3 rounded-xl bg-red-500/10 text-red-500 text-[9px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">
+                        <button className="w-full py-3 rounded-xl bg-red-500/10 text-red-500 text-[8px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">
                             Encerrar Sessão
                         </button>
                     </div>
@@ -301,20 +346,20 @@ const AdminDashboardPage: React.FC = () => {
                 {/* Header de Contexto */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
                     <div>
-                        <h1 className="text-4xl font-black uppercase italic tracking-tighter">
+                        <h1 className="text-3xl font-black uppercase italic tracking-tighter">
                             {activeTab === 'overview' && 'Visão Geral'}
                             {activeTab === 'verificacoes' && 'Fila de Auditoria'}
                             {activeTab === 'modelos' && 'Base de Talentos'}
                             {activeTab === 'categorias' && 'Gestão de Categorias'}
                             {activeTab === 'financeiro' && 'Fluxo de Caixa'}
                         </h1>
-                        <p className="text-slate-500 text-sm font-medium mt-1">Bem-vindo de volta ao centro de operações.</p>
+                        <p className="text-slate-500 text-xs font-medium mt-1">Bem-vindo de volta ao centro de operações.</p>
                     </div>
 
                     <div className="flex items-center gap-4">
                         <div className="hidden md:flex flex-col items-end">
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data de Hoje</span>
-                            <span className="text-sm font-bold">{new Date().toLocaleDateString('pt-MZ', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Data de Hoje</span>
+                            <span className="text-xs font-bold">{new Date().toLocaleDateString('pt-MZ', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                         </div>
                         <button className="size-12 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-slate-400 hover:text-white transition-colors relative">
                             <span className="material-symbols-outlined">notifications</span>
@@ -343,8 +388,8 @@ const AdminDashboardPage: React.FC = () => {
                                             {card.trend}
                                         </span>
                                     </div>
-                                    <div className="text-3xl font-black mb-1">{card.val}</div>
-                                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">{card.label}</div>
+                                    <div className="text-2xl font-black mb-1">{card.val}</div>
+                                    <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">{card.label}</div>
                                 </div>
                             ))}
                         </div>
@@ -353,32 +398,41 @@ const AdminDashboardPage: React.FC = () => {
                             {/* Activity Feed */}
                             <section className="lg:col-span-8 bg-[#0d1218] border border-white/5 rounded-[2.5rem] p-10 shadow-2xl">
                                 <div className="flex items-center justify-between mb-10">
-                                    <h3 className="text-xl font-bold flex items-center gap-3">
+                                    <h3 className="text-lg font-bold flex items-center gap-3">
                                         <span className="material-symbols-outlined text-blue-500">analytics</span>
                                         Atividade em Tempo Real
                                     </h3>
-                                    <button className="text-[10px] font-black text-blue-500 uppercase tracking-widest hover:underline">Ver Log Completo</button>
+                                    <button
+                                        onClick={fetchLogs}
+                                        className="text-[10px] font-black text-blue-500 uppercase tracking-widest hover:underline"
+                                    >
+                                        Atualizar Logs
+                                    </button>
                                 </div>
                                 <div className="space-y-6">
-                                    {[
-                                        { user: 'Ana Paula', action: 'Completou verificação de vídeo', time: 'Há 4 min', type: 'success' },
-                                        { user: 'João M.', action: 'Desbloqueou contato de Sarah Jenkins', time: 'Há 15 min', type: 'payment' },
-                                        { user: 'Equipe Admin', action: 'Novo modelo reprovado (ID #921)', time: 'Há 1h', type: 'danger' },
-                                        { user: 'Zito F.', action: 'Atualizou fotos de portfólio', time: 'Há 2h', type: 'info' }
-                                    ].map((act, i) => (
-                                        <div key={i} className="flex items-center justify-between p-5 rounded-3xl bg-white/[0.02] border border-white/5 group hover:bg-white/[0.05] transition-all">
-                                            <div className="flex items-center gap-5">
-                                                <div className="size-12 rounded-2xl bg-[#141a21] flex items-center justify-center font-black text-xs text-slate-400 group-hover:text-blue-500 transition-colors">
-                                                    {act.user.split(' ').map(n => n[0]).join('')}
+                                    {logs.length > 0 ? (
+                                        logs.map((log) => (
+                                            <div key={log.id} className="flex items-center justify-between p-5 rounded-3xl bg-white/[0.02] border border-white/5 group hover:bg-white/[0.05] transition-all">
+                                                <div className="flex items-center gap-5">
+                                                    <div className={`size-12 rounded-2xl bg-[#141a21] flex items-center justify-center font-black text-xs group-hover:bg-opacity-80 transition-all
+                                                        ${log.type === 'success' ? 'text-emerald-500' :
+                                                            log.type === 'danger' ? 'text-rose-500' :
+                                                                log.type === 'payment' ? 'text-amber-500' : 'text-blue-500'}`}>
+                                                        {log.user_name ? log.user_name.substring(0, 2).toUpperCase() : 'SY'}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-white mb-0.5">{log.user_name || 'Sistema'}</p>
+                                                        <p className="text-[10px] text-slate-500 font-medium">{log.action}</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-sm font-bold text-white mb-0.5">{act.user}</p>
-                                                    <p className="text-[11px] text-slate-500 font-medium">{act.action}</p>
-                                                </div>
+                                                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{timeAgo(log.created_at)}</span>
                                             </div>
-                                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{act.time}</span>
+                                        ))
+                                    ) : (
+                                        <div className="text-center py-10 text-slate-500 text-xs">
+                                            Nenhuma atividade registrada recentemente.
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                             </section>
 
@@ -433,7 +487,7 @@ const AdminDashboardPage: React.FC = () => {
                                         value={newCategory}
                                         onChange={(e) => setNewCategory(e.target.value)}
                                         placeholder="Ex: Fitness, Comercial, Plus Size..."
-                                        className="w-full bg-[#141a21] border border-white/10 rounded-2xl py-5 pl-14 pr-6 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-700 text-white"
+                                        className="w-full bg-[#141a21] border border-white/10 rounded-2xl py-5 pl-14 pr-6 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-700 text-white"
                                     />
                                 </div>
                                 <button
@@ -452,7 +506,7 @@ const AdminDashboardPage: React.FC = () => {
                                         <div className="size-12 rounded-2xl bg-blue-600/10 flex items-center justify-center text-blue-500 group-hover:bg-blue-600 group-hover:text-white transition-all">
                                             <span className="material-symbols-outlined text-xl">label</span>
                                         </div>
-                                        <span className="text-sm font-black text-white">{cat}</span>
+                                        <span className="text-xs font-black text-white">{cat}</span>
                                     </div>
                                     <button
                                         onClick={() => handleRemoveCategory(cat)}
@@ -529,7 +583,7 @@ const AdminDashboardPage: React.FC = () => {
                                                     to={`/perfil/${model.id}`}
                                                     className="block group"
                                                 >
-                                                    <h3 className="text-3xl font-black uppercase italic tracking-tighter mb-2 group-hover:text-blue-500 transition-colors">{model.artisticName}</h3>
+                                                    <h3 className="text-2xl font-black uppercase italic tracking-tighter mb-2 group-hover:text-blue-500 transition-colors">{model.artisticName}</h3>
                                                 </Link>
                                                 <div className="flex items-center gap-3">
                                                     <span className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white/5 px-3 py-1 rounded-full">
@@ -545,23 +599,23 @@ const AdminDashboardPage: React.FC = () => {
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1">Submetido em</span>
-                                                <span className="text-sm font-bold text-white">22 Mai, 2024</span>
+                                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block mb-1">Submetido em</span>
+                                                <span className="text-xs font-bold text-white">22 Mai, 2024</span>
                                             </div>
                                         </div>
 
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 mb-10">
                                             <div className="space-y-1">
-                                                <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Altura</span>
-                                                <p className="text-lg font-black">{model.height || '1.75m'}</p>
+                                                <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Altura</span>
+                                                <p className="text-sm font-black">{model.height || '1.75m'}</p>
                                             </div>
                                             <div className="space-y-1">
-                                                <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Idade</span>
-                                                <p className="text-lg font-black">{model.age} Anos</p>
+                                                <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Idade</span>
+                                                <p className="text-sm font-black">{model.age} Anos</p>
                                             </div>
                                             <div className="space-y-1">
-                                                <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Peso</span>
-                                                <p className="text-lg font-black">{model.weight || 'N/A'}</p>
+                                                <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Peso</span>
+                                                <p className="text-sm font-black">{model.weight || 'N/A'}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Documento</span>
@@ -632,7 +686,7 @@ const AdminDashboardPage: React.FC = () => {
                                             to={`/perfil/${model.slug || model.id}`}
                                             className="block group"
                                         >
-                                            <h3 className="text-sm font-black uppercase italic tracking-tighter group-hover:text-blue-500 transition-colors truncate">{model.artisticName}</h3>
+                                            <h3 className="text-xs font-black uppercase italic tracking-tighter group-hover:text-blue-500 transition-colors truncate">{model.artisticName}</h3>
                                         </Link>
                                         <div className="flex items-center gap-2 text-[9px] text-slate-500 font-bold">
                                             <span className="material-symbols-outlined text-xs">location_on</span>
@@ -655,11 +709,11 @@ const AdminDashboardPage: React.FC = () => {
                                         <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
                                             <div>
                                                 <span className="text-[8px] font-black text-slate-600 uppercase">Idade</span>
-                                                <p className="text-xs font-black">{model.age}</p>
+                                                <p className="text-[10px] font-black">{model.age}</p>
                                             </div>
                                             <div>
                                                 <span className="text-[8px] font-black text-slate-600 uppercase">Altura</span>
-                                                <p className="text-xs font-black">{model.height || 'N/A'}</p>
+                                                <p className="text-[10px] font-black">{model.height || 'N/A'}</p>
                                             </div>
                                         </div>
 
