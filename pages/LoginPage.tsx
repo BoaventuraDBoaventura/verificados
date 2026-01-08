@@ -21,13 +21,20 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     setLoading(true);
     setError(null);
 
+    const sanitizedEmail = email.trim().toLowerCase();
+    const sanitizedPassword = password.trim();
+
     // Tentar login como admin primeiro
     const { data: adminData, error: adminError } = await supabase
       .from('admins')
       .select('id, email')
-      .eq('email', email)
-      .eq('password', password)
+      .eq('email', sanitizedEmail)
+      .eq('password', sanitizedPassword) // Idealmente usaríamos hash aqui, mas mantendo compatível com o atual
       .single();
+
+    if (adminError && adminError.code !== 'PGRST116') { // PGRST116 é "not found", outros erros são importantes
+      console.error('Erro ao verificar Admin:', adminError);
+    }
 
     if (!adminError && adminData) {
       // Login como admin
@@ -37,7 +44,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         role: 'admin' as const
       };
       localStorage.setItem('verificados_user', JSON.stringify(adminUser));
-      // Passar usuário completo para onLogin
       onLogin(adminUser);
       setLoading(false);
       navigate('/admin');
@@ -48,9 +54,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     const { data: modelData, error: modelError } = await supabase
       .from('models')
       .select('id, email, artistic_name, slug')
-      .eq('email', email)
-      .eq('password', password)
+      .eq('email', sanitizedEmail)
+      .eq('password', sanitizedPassword)
       .single();
+
+    if (modelError && modelError.code !== 'PGRST116') {
+      console.error('Erro ao verificar Modelo:', modelError);
+    }
 
     if (!modelError && modelData) {
       // Login como modelo
@@ -62,13 +72,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         slug: modelData.slug
       };
       localStorage.setItem('verificados_user', JSON.stringify(modelUser));
-      // Passar usuário completo para onLogin
       onLogin(modelUser);
       setLoading(false);
       navigate('/dashboard');
       return;
     }
 
+    // Diagnóstico extra para o console
+    console.warn('Falha no login. Email buscado:', sanitizedEmail);
     // Se não encontrou nem admin nem modelo
     setError('E-mail ou senha incorretos.');
     showToast('Credenciais inválidas. Verifique seu e-mail e senha.', 'error');
