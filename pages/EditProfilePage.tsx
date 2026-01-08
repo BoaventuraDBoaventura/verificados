@@ -335,7 +335,7 @@ const EditProfilePage: React.FC<EditProfilePageProps> = ({ user }) => {
                     .replace(/[^\w\s-]/g, '')
                     .replace(/\s+/g, '-')
                     .replace(/--+/g, '-')
-                    .trim(),
+                    .trim() + '-' + Math.random().toString(36).substring(2, 7),
                 age: formData.age ? Number(formData.age) : null,
                 province: String(formData.province).trim(),
                 city: String(formData.city).trim(),
