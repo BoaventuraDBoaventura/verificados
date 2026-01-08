@@ -4,22 +4,19 @@ import { useNavigate, Link } from 'react-router-dom';
 import { MOZAMBIQUE_PROVINCES } from '../constants';
 import { supabase } from '../supabaseClient';
 import { uploadFile } from '../utils/storage';
+import { useToast } from '../context/ToastContext';
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
-  const [profileImage, setProfileImage] = useState<File | null>(null);
-  const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
-  const [previewVideo, setPreviewVideo] = useState<File | null>(null);
-  const [previewVideoName, setPreviewVideoName] = useState<string | null>(null);
-  
+
   // Estados para os termos obrigatórios
   const [agreements, setAgreements] = useState({
     terms: false,
     privacy: false,
-    videoCall: false,
     age: false
   });
   const [error, setError] = useState<string | null>(null);
@@ -49,44 +46,17 @@ const RegisterPage: React.FC = () => {
   }, []);
 
   const toggleCategory = (cat: string) => {
-    setSelectedCategories(prev => 
+    setSelectedCategories(prev =>
       prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
     );
   };
 
-  const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setError('A imagem deve ter no máximo 5MB.');
-        return;
-      }
-      setProfileImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
-  const handlePreviewVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 30 * 1024 * 1024) {
-        setError('O vídeo deve ter no máximo 30MB.');
-        return;
-      }
-      setPreviewVideo(file);
-      setPreviewVideoName(file.name);
-    }
-  };
 
-  const isFormValid = agreements.terms && 
-                     agreements.privacy && 
-                     agreements.videoCall && 
-                     agreements.age && 
-                     selectedCategories.length > 0;
+  const isFormValid = agreements.terms &&
+    agreements.privacy &&
+    agreements.age &&
+    selectedCategories.length > 0;
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target;
@@ -95,6 +65,18 @@ const RegisterPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validar se todos os termos foram aceitos
+    if (!agreements.terms || !agreements.privacy || !agreements.age) {
+      showToast('Por favor, aceite todos os termos obrigatórios para continuar.', 'warning');
+      return;
+    }
+
+    if (selectedCategories.length === 0) {
+      showToast('Por favor, selecione pelo menos uma categoria.', 'warning');
+      return;
+    }
+
     if (!isFormValid) return;
 
     const form = e.target as HTMLFormElement;
@@ -104,9 +86,20 @@ const RegisterPage: React.FC = () => {
     setError(null);
 
     try {
+      const artisticName = formData.get('artisticName') as string;
+      const slug = artisticName
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+        .replace(/[^\w\s-]/g, '') // Remove caracteres especiais
+        .replace(/\s+/g, '-') // Espaços para -
+        .replace(/--+/g, '-') // Evita múltiplos --
+        .trim();
+
       // Primeiro, inserir o modelo no banco para obter o ID
       const payload = {
-        artistic_name: formData.get('artisticName') as string,
+        artistic_name: artisticName,
+        slug: slug,
         email: formData.get('email') as string,
         password: formData.get('password') as string,
         age: Number(formData.get('age')),
@@ -116,7 +109,6 @@ const RegisterPage: React.FC = () => {
         phone_number: formData.get('phone') as string,
         agrees_terms: agreements.terms,
         agrees_privacy: agreements.privacy,
-        agrees_video_call: agreements.videoCall,
         is_adult: agreements.age
       };
 
@@ -127,60 +119,19 @@ const RegisterPage: React.FC = () => {
         .single();
 
       if (insertError) {
-        console.error(insertError);
-        setError('Ocorreu um erro ao salvar seu cadastro. Tente novamente.');
+        console.error('Erro detalhado do Supabase:', insertError);
+        showToast(`Erro ao criar conta: ${insertError.message}`, 'error');
+        setError(`Erro ao salvar: ${insertError.message || 'Verifique as permissões do banco (RLS)'}`);
         setLoading(false);
         return;
       }
 
-      const modelId = insertedData.id;
-      const updateData: any = {};
-
-      // Upload da foto de perfil se houver
-      if (profileImage) {
-        const timestamp = Date.now();
-        const fileExt = profileImage.name.split('.').pop();
-        const profileImagePath = `models/${modelId}/profile_${timestamp}.${fileExt}`;
-        const profileImageUrl = await uploadFile(profileImage, profileImagePath);
-        
-        if (profileImageUrl) {
-          updateData.profile_image = profileImageUrl;
-        } else {
-          console.warn('Erro ao fazer upload da foto de perfil, mas continuando...');
-        }
-      }
-
-      // Upload do vídeo de casting se houver
-      if (previewVideo) {
-        const timestamp = Date.now();
-        const fileExt = previewVideo.name.split('.').pop();
-        const videoPath = `models/${modelId}/casting_${timestamp}.${fileExt}`;
-        const videoUrl = await uploadFile(previewVideo, videoPath);
-        
-        if (videoUrl) {
-          updateData.verification_video = videoUrl;
-        } else {
-          console.warn('Erro ao fazer upload do vídeo de casting, mas continuando...');
-        }
-      }
-
-      // Atualizar o modelo com as URLs das mídias se houver
-      if (Object.keys(updateData).length > 0) {
-        const { error: updateError } = await supabase
-          .from('models')
-          .update(updateData)
-          .eq('id', modelId);
-
-        if (updateError) {
-          console.error('Erro ao atualizar mídias:', updateError);
-          // Não falhar o cadastro por causa disso, apenas logar o erro
-        }
-      }
-
+      showToast('Cadastro realizado com sucesso! Bem-vindo(a).', 'success');
       setLoading(false);
       navigate('/login');
     } catch (err: any) {
-      console.error('Erro ao processar cadastro:', err);
+      console.error('Erro inesperado no cadastro:', err);
+      showToast('Ocorreu um erro inesperado. Tente novamente.', 'error');
       setError('Ocorreu um erro ao salvar seu cadastro. Tente novamente.');
       setLoading(false);
     }
@@ -208,7 +159,7 @@ const RegisterPage: React.FC = () => {
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Idade</label>
               <input name="age" type="number" placeholder="Ex: 25" className="rounded-lg border border-white/10 bg-[#111418] p-4 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" required />
             </div>
-            
+
             <div className="md:col-span-6 flex flex-col gap-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">E-mail</label>
               <div className="relative">
@@ -225,14 +176,14 @@ const RegisterPage: React.FC = () => {
               </div>
               <p className="text-[9px] text-slate-500 mt-1">Mínimo 6 caracteres</p>
             </div>
-            
+
             <div className="md:col-span-6 flex flex-col gap-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Província</label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none">expand_more</span>
-                <select 
+                <select
                   name="province"
-                  className="w-full appearance-none rounded-lg border border-white/10 bg-[#111418] p-4 pr-12 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer" 
+                  className="w-full appearance-none rounded-lg border border-white/10 bg-[#111418] p-4 pr-12 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer"
                   required
                 >
                   <option value="" disabled>Selecionar Província</option>
@@ -273,11 +224,10 @@ const RegisterPage: React.FC = () => {
                   key={cat}
                   type="button"
                   onClick={() => toggleCategory(cat)}
-                  className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
-                    selectedCategories.includes(cat)
-                      ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/40'
-                      : 'bg-[#111418] border-white/10 text-slate-500 hover:border-white/30'
-                  }`}
+                  className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${selectedCategories.includes(cat)
+                    ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/40'
+                    : 'bg-[#111418] border-white/10 text-slate-500 hover:border-white/30'
+                    }`}
                 >
                   {cat}
                   {selectedCategories.includes(cat) && <span className="material-symbols-outlined text-[12px] ml-2">check</span>}
@@ -305,134 +255,42 @@ const RegisterPage: React.FC = () => {
           </div>
         </section>
 
-        <section className="rounded-2xl bg-[#1c2127] p-6 md:p-10 border border-white/5 shadow-xl">
-          <h2 className="text-xl font-bold border-b border-white/5 pb-4 mb-6 flex items-center gap-2">
-            <span className="material-symbols-outlined text-blue-500">upload_file</span>
-            Mídia Inicial
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="flex flex-col gap-4">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Foto de Perfil Principal</label>
-              {profileImagePreview ? (
-                <div className="relative h-48 rounded-xl overflow-hidden border-2 border-blue-500 bg-[#111418]">
-                  <img src={profileImagePreview} alt="Preview" className="w-full h-full object-cover" />
-                  <div className="absolute top-2 right-2 flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/90 backdrop-blur-sm">
-                    <span className="material-symbols-outlined text-sm text-white">check_circle</span>
-                    <span className="text-[9px] font-black text-white uppercase">Carregado</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProfileImage(null);
-                      setProfileImagePreview(null);
-                    }}
-                    className="absolute top-2 left-2 size-8 rounded-full bg-red-500/90 backdrop-blur-sm flex items-center justify-center hover:bg-red-500 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-sm text-white">close</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-48 rounded-xl border-2 border-dashed border-white/10 bg-[#111418] hover:border-blue-500/50 cursor-pointer transition-all group relative overflow-hidden">
-                  <span className="material-symbols-outlined text-3xl mb-2 group-hover:scale-110 transition-transform">add_a_photo</span>
-                  <span className="text-sm font-bold uppercase tracking-tighter">Clique para enviar foto</span>
-                  <span className="text-[10px] text-slate-500 mt-1 uppercase tracking-widest">JPG ou PNG (Max 5MB)</span>
-                  <input 
-                    type="file" 
-                    className="absolute inset-0 opacity-0 cursor-pointer" 
-                    accept="image/*" 
-                    onChange={handleProfileImageChange}
-                  />
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col gap-4">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Vídeo de Casting (Opcional)</label>
-              {previewVideoName ? (
-                <div className="relative h-48 rounded-xl border-2 border-blue-500 bg-[#111418] flex flex-col items-center justify-center p-6">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="material-symbols-outlined text-4xl text-emerald-500">videocam</span>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-white">{previewVideoName}</span>
-                      <span className="text-[9px] text-slate-400">{previewVideo ? ((previewVideo.size / (1024 * 1024)).toFixed(2)) : '0.00'} MB</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/90 backdrop-blur-sm">
-                    <span className="material-symbols-outlined text-sm text-white">check_circle</span>
-                    <span className="text-[9px] font-black text-white uppercase">Carregado</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPreviewVideo(null);
-                      setPreviewVideoName(null);
-                    }}
-                    className="absolute top-2 right-2 size-8 rounded-full bg-red-500/90 backdrop-blur-sm flex items-center justify-center hover:bg-red-500 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-sm text-white">close</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-48 rounded-xl border-2 border-dashed border-white/10 bg-[#111418] hover:border-blue-500/50 cursor-pointer transition-all group relative overflow-hidden">
-                  <span className="material-symbols-outlined text-3xl mb-2 group-hover:scale-110 transition-transform">videocam</span>
-                  <span className="text-sm font-bold uppercase tracking-tighter">Carregar vídeo prévia</span>
-                  <span className="text-[10px] text-slate-500 mt-1 uppercase tracking-widest">MP4 ou MOV (Max 30MB)</span>
-                  <input 
-                    type="file" 
-                    className="absolute inset-0 opacity-0 cursor-pointer" 
-                    accept="video/*" 
-                    onChange={handlePreviewVideoChange}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
+
 
         <section className="flex flex-col gap-6">
           <div className="flex flex-col gap-4">
             <label className="flex items-start gap-3 cursor-pointer group">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 name="terms"
                 checked={agreements.terms}
                 onChange={handleCheckboxChange}
-                className="mt-1 h-5 w-5 rounded border-white/10 bg-[#1c2127] text-blue-600 focus:ring-0" 
+                className="mt-1 h-5 w-5 rounded border-white/10 bg-[#1c2127] text-blue-600 focus:ring-0"
               />
               <span className="text-sm text-slate-400 group-hover:text-white transition-colors">
                 Declaro que li e aceito os <Link to="/termos" onClick={(e) => e.stopPropagation()} className="text-blue-500 font-bold hover:underline">Termos de Uso</Link> da plataforma.
               </span>
             </label>
             <label className="flex items-start gap-3 cursor-pointer group">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 name="privacy"
                 checked={agreements.privacy}
                 onChange={handleCheckboxChange}
-                className="mt-1 h-5 w-5 rounded border-white/10 bg-[#1c2127] text-blue-600 focus:ring-0" 
+                className="mt-1 h-5 w-5 rounded border-white/10 bg-[#1c2127] text-blue-600 focus:ring-0"
               />
               <span className="text-sm text-slate-400 group-hover:text-white transition-colors">
                 Aceito a <Link to="/privacidade" onClick={(e) => e.stopPropagation()} className="text-blue-500 font-bold hover:underline">Política de Privacidade</Link> e o tratamento dos meus dados.
               </span>
             </label>
+
             <label className="flex items-start gap-3 cursor-pointer group">
-              <input 
-                type="checkbox" 
-                name="videoCall"
-                checked={agreements.videoCall}
-                onChange={handleCheckboxChange}
-                className="mt-1 h-5 w-5 rounded border-white/10 bg-[#1c2127] text-blue-600 focus:ring-0" 
-              />
-              <span className="text-sm text-slate-400 group-hover:text-white transition-colors">
-                Aceito que a equipe <strong className="text-white">Verificados</strong> entre em contacto por vídeo chamada para concluir a verificação.
-              </span>
-            </label>
-            <label className="flex items-start gap-3 cursor-pointer group">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 name="age"
                 checked={agreements.age}
                 onChange={handleCheckboxChange}
-                className="mt-1 h-5 w-5 rounded border-white/10 bg-[#1c2127] text-blue-600 focus:ring-0" 
+                className="mt-1 h-5 w-5 rounded border-white/10 bg-[#1c2127] text-blue-600 focus:ring-0"
               />
               <span className="text-sm text-slate-400 group-hover:text-white transition-colors">
                 Confirmo que possuo <strong className="text-white">18 anos</strong> ou mais.
@@ -446,8 +304,8 @@ const RegisterPage: React.FC = () => {
                 {error}
               </p>
             )}
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={loading || !isFormValid}
               className="w-full rounded-xl bg-blue-600 py-5 text-lg font-black text-white shadow-2xl shadow-blue-900/40 hover:bg-blue-500 transition-all active:scale-95 disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed flex items-center justify-center gap-3 uppercase italic"
             >

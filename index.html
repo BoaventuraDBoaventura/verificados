@@ -30,6 +30,14 @@
         -ms-overflow-style: none;  /* IE and Edge */
         scrollbar-width: none;  /* Firefox */
       }
+      
+      @keyframes toast-progress {
+        from { transform: scaleX(1); }
+        to { transform: scaleX(0); }
+      }
+      .animate-toast-progress {
+        animation: toast-progress 4s linear forwards;
+      }
     </style>
     <script type="importmap">
     {

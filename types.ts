@@ -8,6 +8,7 @@ export enum VerificationStatus {
 
 export interface Model {
   id: string;
+  slug?: string;
   artisticName: string;
   age: number;
   location: string;
@@ -35,4 +36,5 @@ export interface User {
   email: string;
   role: 'model' | 'admin';
   modelId?: string;
+  slug?: string;
 }

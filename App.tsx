@@ -15,6 +15,7 @@ import PrivacyPage from './pages/PrivacyPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import { User } from './types';
+import { ToastProvider } from './context/ToastContext';
 
 const App: React.FC = () => {
   // Carregar usuário do localStorage ao iniciar
@@ -48,17 +49,11 @@ const App: React.FC = () => {
         try {
           const parsed = JSON.parse(savedUser);
           setUser(parsed);
-          return;
         } catch {
-          // Fallback para valores fake apenas se não houver localStorage
-          const newUser: User = {
-            id: userOrRole === 'model' ? 'u1' : 'admin-id',
-            email: userOrRole === 'model' ? 'ana@example.com' : 'admin@verificados.com',
-            role: userOrRole,
-            modelId: userOrRole === 'model' ? '1' : undefined
-          };
-          setUser(newUser);
+          setUser(null);
         }
+      } else {
+        setUser(null);
       }
     } else {
       // Se passar usuário completo, usa ele
@@ -96,29 +91,31 @@ const App: React.FC = () => {
 
   return (
     <Router>
-      <div className="flex flex-col min-h-screen bg-[#101922] text-white">
-        <Navbar user={user} onLogout={logout} />
-        <main className="flex-grow">
-          <Routes>
-            <Route path="/" element={<GalleryPage />} />
-            <Route path="/info" element={<LandingPage />} />
-            <Route path="/cadastro" element={<RegisterPage />} />
-            <Route path="/login" element={<LoginPage onLogin={login} />} />
-            <Route path="/dashboard" element={user?.role === 'model' ? <DashboardPage user={user} /> : user?.role === 'admin' ? <Navigate to="/admin" /> : <Navigate to="/login" />} />
-            <Route path="/dashboard/editar" element={user?.role === 'model' ? <EditProfilePage user={user} /> : <Navigate to="/login" />} />
-            
-            {/* Super Admin Route */}
-            <Route path="/admin" element={user?.role === 'admin' ? <AdminDashboardPage /> : <Navigate to="/login" />} />
-            
-            <Route path="/perfil/:id" element={<ProfilePage />} />
-            <Route path="/pagamento/:id" element={<PaymentPage />} />
-            <Route path="/termos" element={<TermsPage />} />
-            <Route path="/privacidade" element={<PrivacyPage />} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
+      <ToastProvider>
+        <div className="flex flex-col min-h-screen bg-[#101922] text-white">
+          <Navbar user={user} onLogout={logout} />
+          <main className="flex-grow">
+            <Routes>
+              <Route path="/" element={<GalleryPage />} />
+              <Route path="/info" element={<LandingPage />} />
+              <Route path="/cadastro" element={<RegisterPage />} />
+              <Route path="/login" element={<LoginPage onLogin={login} />} />
+              <Route path="/dashboard" element={user?.role === 'model' ? <DashboardPage user={user} /> : user?.role === 'admin' ? <Navigate to="/admin" /> : <Navigate to="/login" />} />
+              <Route path="/dashboard/editar" element={user?.role === 'model' ? <EditProfilePage user={user} /> : <Navigate to="/login" />} />
+
+              {/* Super Admin Route */}
+              <Route path="/admin" element={user?.role === 'admin' ? <AdminDashboardPage /> : <Navigate to="/login" />} />
+
+              <Route path="/perfil/:id" element={<ProfilePage />} />
+              <Route path="/pagamento/:id" element={<PaymentPage />} />
+              <Route path="/termos" element={<TermsPage />} />
+              <Route path="/privacidade" element={<PrivacyPage />} />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </main>
+          <Footer />
+        </div>
+      </ToastProvider>
     </Router>
   );
 };

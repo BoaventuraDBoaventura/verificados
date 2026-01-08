@@ -1,15 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Model, VerificationStatus } from '../types';
+import { useToast } from '../context/ToastContext';
 
 const ProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [model, setModel] = useState<Model | null>(null);
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'fotos' | 'videos' | 'detalhes' | 'avaliacoes'>('fotos');
-  
+
   // Rating logic states
   const [ratingCodeInput, setRatingCodeInput] = useState('');
   const [isRatingUnlocked, setIsRatingUnlocked] = useState(false);
@@ -17,13 +20,15 @@ const ProfilePage: React.FC = () => {
   const [userRating, setUserRating] = useState(0);
   const [userComment, setUserComment] = useState('');
   const [hasSubmittedRating, setHasSubmittedRating] = useState(false);
-  
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+
   // Image modal state
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  
+
   // Video modal state
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
-  
+
   // Payment unlock state
   const [isContactUnlocked, setIsContactUnlocked] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
@@ -32,6 +37,7 @@ const ProfilePage: React.FC = () => {
   const mapDataToModel = (data: any): Model => {
     return {
       id: data.id,
+      slug: data.slug || null,
       artisticName: data.artistic_name || '',
       age: data.age || 0,
       location: `${data.city || ''}, ${data.province || ''}`,
@@ -42,10 +48,10 @@ const ProfilePage: React.FC = () => {
       galleryImages: Array.isArray(data.gallery_images) ? data.gallery_images : [],
       phoneNumber: data.phone_number,
       isVerified: data.is_verified || false,
-      status: data.status === 'Aprovado' ? VerificationStatus.APPROVED : 
-              data.status === 'Em Verificação' ? VerificationStatus.PENDING :
-              data.status === 'Rejeitado' ? VerificationStatus.REJECTED :
-              VerificationStatus.UNVERIFIED,
+      status: data.status === 'Aprovado' ? VerificationStatus.APPROVED :
+        data.status === 'Em Verificação' ? VerificationStatus.PENDING :
+          data.status === 'Rejeitado' ? VerificationStatus.REJECTED :
+            VerificationStatus.UNVERIFIED,
       height: data.height || null,
       weight: data.weight || null,
       waist: data.waist || null,
@@ -71,11 +77,17 @@ const ProfilePage: React.FC = () => {
     // Buscar dados iniciais
     const fetchModel = async () => {
       try {
-        const { data, error } = await supabase
-          .from('models')
-          .select('*')
-          .eq('id', id)
-          .single();
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
+        let query = supabase.from('models').select('*');
+
+        if (isUUID) {
+          query = query.eq('id', id);
+        } else {
+          query = query.eq('slug', id);
+        }
+
+        const { data, error } = await query.single();
 
         if (error) {
           console.error('❌ Erro ao carregar modelo:', error);
@@ -102,10 +114,32 @@ const ProfilePage: React.FC = () => {
       }
     };
 
+    const fetchReviews = async () => {
+      if (!id) return;
+      setReviewsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('model_id', id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Erro ao buscar avaliações:', error);
+          return;
+        }
+
+        setReviews(data || []);
+      } catch (err) {
+        console.error('Erro inesperado ao buscar avaliações:', err);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+
     // Buscar imediatamente
     fetchModel();
-
-    // Configurar Real-time subscription
+    fetchReviews();
     const channel = supabase
       .channel(`model-${id}`)
       .on(
@@ -118,7 +152,7 @@ const ProfilePage: React.FC = () => {
         },
         (payload) => {
           console.log('🔄 Mudança detectada via Real-time:', payload);
-          
+
           if (payload.eventType === 'DELETE') {
             console.warn('⚠️ Modelo foi deletado');
             setModel(null);
@@ -155,7 +189,7 @@ const ProfilePage: React.FC = () => {
           const { timestamp } = JSON.parse(paymentData);
           const elapsed = Math.floor((Date.now() - timestamp) / 1000);
           const remaining = Math.max(0, 300 - elapsed); // 5 minutos = 300 segundos
-          
+
           if (remaining > 0) {
             setIsContactUnlocked(true);
             setTimeRemaining(remaining);
@@ -198,7 +232,7 @@ const ProfilePage: React.FC = () => {
         <span className="material-symbols-outlined text-6xl text-slate-700 mb-4">person_off</span>
         <h2 className="text-2xl font-black mb-2">Modelo não encontrado</h2>
         <p className="text-slate-400 mb-6">O perfil que você está procurando não existe ou foi removido.</p>
-        <Link 
+        <Link
           to="/"
           className="px-6 py-3 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-blue-500 transition-all"
         >
@@ -208,31 +242,97 @@ const ProfilePage: React.FC = () => {
     );
   }
 
-  const handleValidateCode = () => {
-    // Basic logic: any code starting with VER- is considered valid for demo
-    if (ratingCodeInput.toUpperCase().startsWith('VER-')) {
+  const handleValidateCode = async () => {
+    if (!ratingCodeInput) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('access_codes')
+        .select('*')
+        .eq('code', ratingCodeInput.trim())
+        .eq('model_id', id)
+        .eq('is_used', false)
+        .single();
+
+      if (error || !data) {
+        setRatingError('Código inválido, já utilizado ou não pertence a esta modelo.');
+        return;
+      }
+
       setIsRatingUnlocked(true);
       setRatingError('');
-    } else {
-      setRatingError('Código inválido. Verifique se digitou corretamente.');
+    } catch (err) {
+      console.error('Erro ao validar código:', err);
+      setRatingError('Erro ao validar código. Tente novamente.');
     }
   };
 
-  const handleSubmitRating = (e: React.FormEvent) => {
+  const handleSubmitRating = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (userRating === 0) return alert('Por favor, selecione uma nota.');
-    setHasSubmittedRating(true);
+    if (userRating === 0) return showToast('Por favor, selecione uma nota.', 'warning');
+
+    try {
+      // 1. Inserir a avaliação
+      const { error: reviewError } = await supabase
+        .from('reviews')
+        .insert([
+          {
+            model_id: id,
+            code: ratingCodeInput.trim(),
+            rating: userRating,
+            comment: userComment,
+            user_display_name: 'Usuário Verificado'
+          }
+        ]);
+
+      if (reviewError) {
+        console.error('Erro ao salvar avaliação:', reviewError);
+        showToast('Erro ao enviar avaliação. Tente novamente.', 'error');
+        return;
+      }
+
+      // 2. Marcar o código como usado
+      const { error: codeError } = await supabase
+        .from('access_codes')
+        .update({ is_used: true, used_at: new Date().toISOString() })
+        .eq('code', ratingCodeInput.trim());
+
+      if (codeError) {
+        console.error('Erro ao desativar código:', codeError);
+      }
+
+      setHasSubmittedRating(true);
+
+      // Recarregar avaliações
+      const { data: newReviews } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('model_id', id)
+        .order('created_at', { ascending: false });
+
+      if (newReviews) setReviews(newReviews);
+
+    } catch (err) {
+      console.error('Erro inesperado ao enviar avaliação:', err);
+      showToast('Erro inesperado. Tente novamente.', 'error');
+    }
   };
 
   const handleRefresh = () => {
     if (id) {
       setLoading(true);
       const fetchModel = async () => {
-        const { data, error } = await supabase
-          .from('models')
-          .select('*')
-          .eq('id', id)
-          .single();
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
+        let query = supabase.from('models').select('*');
+
+        if (isUUID) {
+          query = query.eq('id', id);
+        } else {
+          query = query.eq('slug', id);
+        }
+
+        const { data, error } = await query.single();
 
         if (error || !data) {
           console.error('Erro ao recarregar modelo:', error);
@@ -242,6 +342,7 @@ const ProfilePage: React.FC = () => {
 
         const mappedModel: Model = {
           id: data.id,
+          slug: data.slug || null,
           artisticName: data.artistic_name || '',
           age: data.age || 0,
           location: `${data.city || ''}, ${data.province || ''}`,
@@ -252,10 +353,10 @@ const ProfilePage: React.FC = () => {
           galleryImages: Array.isArray(data.gallery_images) ? data.gallery_images : [],
           phoneNumber: data.phone_number,
           isVerified: data.is_verified || false,
-          status: data.status === 'Aprovado' ? VerificationStatus.APPROVED : 
-                  data.status === 'Em Verificação' ? VerificationStatus.PENDING :
-                  data.status === 'Rejeitado' ? VerificationStatus.REJECTED :
-                  VerificationStatus.UNVERIFIED,
+          status: data.status === 'Aprovado' ? VerificationStatus.APPROVED :
+            data.status === 'Em Verificação' ? VerificationStatus.PENDING :
+              data.status === 'Rejeitado' ? VerificationStatus.REJECTED :
+                VerificationStatus.UNVERIFIED,
           height: data.height || null,
           weight: data.weight || null,
           waist: data.waist || null,
@@ -274,22 +375,34 @@ const ProfilePage: React.FC = () => {
 
   return (
     <div className="bg-[#101922] min-h-screen pb-4">
-      
+
       {/* Refined Hero Header Section */}
       <section className="relative pt-0 pb-4 px-0 sm:px-4 lg:px-6 overflow-hidden bg-gradient-to-b from-blue-600/5 to-transparent">
         {/* Background Decoration */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[150px] bg-blue-600/5 blur-[60px] rounded-full pointer-events-none"></div>
-        
-        <div className="max-w-3xl mx-auto relative z-10">
+
+        <div className="max-w-5xl mx-auto relative z-20 mb-4 px-4 sm:px-0">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors group"
+          >
+            <div className="size-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-blue-600 group-hover:border-blue-500 transition-all">
+              <span className="material-symbols-outlined text-sm">arrow_back</span>
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest">Voltar</span>
+          </button>
+        </div>
+
+        <div className="max-w-5xl mx-auto relative z-10">
           <div className="flex flex-col lg:flex-row gap-0 sm:gap-3 lg:gap-4 items-center">
-            
+
             {/* Profile Photo Card - Large on Mobile */}
             <div className="w-full lg:w-auto lg:max-w-[140px] shrink-0 flex justify-center lg:justify-start">
               <div className="w-full aspect-[3/4] sm:aspect-[3/4] lg:aspect-[3/4] max-h-[70vh] sm:max-h-[60vh] lg:max-h-none lg:w-[140px] rounded-none sm:rounded-lg overflow-hidden border-0 sm:border border-white/5 shadow-sm relative group">
                 {model.profileImage ? (
-                  <img 
+                  <img
                     src={`${model.profileImage}?t=${Date.now()}`}
-                    className="w-full h-full object-cover" 
+                    className="w-full h-full object-cover"
                     alt={model.artisticName}
                     onError={(e) => {
                       console.error('❌ Erro ao carregar imagem:', model.profileImage);
@@ -306,9 +419,9 @@ const ProfilePage: React.FC = () => {
                   </div>
                 )}
                 <div className="absolute top-2 right-2 sm:top-3 sm:right-3">
-                   <div className="size-8 sm:size-10 lg:size-6 rounded-full bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-white text-base sm:text-lg lg:text-xs">zoom_in</span>
-                   </div>
+                  <div className="size-8 sm:size-10 lg:size-6 rounded-full bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-white text-base sm:text-lg lg:text-xs">zoom_in</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -323,11 +436,16 @@ const ProfilePage: React.FC = () => {
                     <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-blue-500">Verificado</span>
                   </div>
                 </div>
-                
+
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2">
                   <span className="flex items-center gap-1 text-slate-400 text-xs sm:text-sm font-bold uppercase tracking-widest">
                     <span className="material-symbols-outlined text-blue-500 text-xs sm:text-sm">location_on</span>
                     {model.location}
+                  </span>
+                  <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
+                  <span className="flex items-center gap-1 text-slate-400 text-xs sm:text-sm font-bold uppercase tracking-widest">
+                    <span className="material-symbols-outlined text-blue-500 text-xs sm:text-sm">cake</span>
+                    {model.age} Anos
                   </span>
                   <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
                   <div className="flex flex-wrap justify-center lg:justify-start gap-1.5">
@@ -338,32 +456,55 @@ const ProfilePage: React.FC = () => {
                     ))}
                   </div>
                 </div>
-              </div>
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 mt-2">
+                  {model?.id && isContactUnlocked && (
+                    <a
+                      href={`https://wa.me/${model.phoneNumber?.replace(/\D/g, '') || ''}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-black text-white shadow-sm shadow-emerald-900/40 hover:bg-emerald-500 transition-all active:scale-95 uppercase tracking-widest italic"
+                    >
+                      <span className="material-symbols-outlined text-sm sm:text-base">chat_bubble</span>
+                      WhatsApp
+                    </a>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleRefresh}
+                      className="size-8 sm:size-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all text-slate-400 hover:text-white"
+                      title="Atualizar Perfil"
+                    >
+                      <span className="material-symbols-outlined text-sm sm:text-base">refresh</span>
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const shareData = {
+                          title: `Verificados - ${model.artisticName}`,
+                          text: `Confira o perfil de ${model.artisticName} no Verificados!`,
+                          url: window.location.href,
+                        };
 
-              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 mt-2">
-                {model?.id && (
-                  <Link 
-                    to={`/pagamento/${model.id}`}
-                    className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-black text-white shadow-sm shadow-blue-900/40 hover:bg-blue-500 transition-all active:scale-95 uppercase tracking-widest italic"
-                  >
-                    <span className="material-symbols-outlined text-sm sm:text-base">chat_bubble</span>
-                    Contratar Agora
-                  </Link>
-                )}
-                <div className="flex gap-2">
-                  <button 
-                    onClick={handleRefresh}
-                    className="size-8 sm:size-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all text-slate-400 hover:text-white" 
-                    title="Atualizar Perfil"
-                  >
-                    <span className="material-symbols-outlined text-sm sm:text-base">refresh</span>
-                  </button>
-                  <button 
-                    className="size-8 sm:size-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all text-slate-400 hover:text-white" 
-                    title="Compartilhar Perfil"
-                  >
-                    <span className="material-symbols-outlined text-sm sm:text-base">share</span>
-                  </button>
+                        if (navigator.share) {
+                          try {
+                            await navigator.share(shareData);
+                          } catch (err) {
+                            console.error('Erro ao compartilhar:', err);
+                          }
+                        } else {
+                          try {
+                            await navigator.clipboard.writeText(window.location.href);
+                            showToast('Link copiado para a área de transferência!', 'success');
+                          } catch (err) {
+                            console.error('Erro ao copiar link:', err);
+                          }
+                        }
+                      }}
+                      className="size-8 sm:size-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all text-slate-400 hover:text-white"
+                      title="Compartilhar Perfil"
+                    >
+                      <span className="material-symbols-outlined text-sm sm:text-base">share</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -372,34 +513,33 @@ const ProfilePage: React.FC = () => {
       </section>
 
       {/* Main Content Area */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-3 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-2 mt-4 sm:mt-6">
-        
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-3 grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-8 mt-4 sm:mt-6">
         {/* Left Column: Content Explorer */}
-        <div className="lg:col-span-8 flex flex-col gap-3 sm:gap-4 relative z-0">
-          
+        <div className="lg:col-span-7 flex flex-col gap-3 sm:gap-4 relative z-0">
           {/* Main Content Tabs */}
           <div className="flex border-b border-white/10 gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-1">
-            {[
-              { id: 'fotos', label: 'Imagens', icon: 'photo_library' },
-              { id: 'videos', label: 'Vídeos', icon: 'videocam' },
-              { id: 'detalhes', label: 'Sobre & Medidas', icon: 'straighten' },
-              { id: 'avaliacoes', label: 'Avaliações', icon: 'stars' }
-            ].map(tab => (
-              <button 
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`pb-1.5 sm:pb-2 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.05em] transition-all relative flex items-center gap-0.5 sm:gap-1 whitespace-nowrap px-1.5 sm:px-2 ${
-                  activeTab === tab.id ? 'text-white' : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                <span className={`material-symbols-outlined text-[10px] sm:text-xs ${activeTab === tab.id ? 'text-blue-500' : 'text-slate-600'}`}>
-                  {tab.icon}
-                </span>
-                <span className="hidden sm:inline">{tab.label}</span>
-                <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
-                {activeTab === tab.id && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500 rounded-full animate-in fade-in zoom-in duration-300"></div>}
-              </button>
-            ))}
+            {
+              [
+                { id: 'fotos', label: 'Imagens', icon: 'photo_library' },
+                { id: 'videos', label: 'Vídeos', icon: 'videocam' },
+                { id: 'detalhes', label: 'Sobre & Medidas', icon: 'straighten' },
+                { id: 'avaliacoes', label: 'Avaliações', icon: 'stars' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`pb-1.5 sm:pb-2 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.05em] transition-all relative flex items-center gap-0.5 sm:gap-1 whitespace-nowrap px-1.5 sm:px-2 ${activeTab === tab.id ? 'text-white' : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                >
+                  <span className={`material-symbols-outlined text-[10px] sm:text-xs ${activeTab === tab.id ? 'text-blue-500' : 'text-slate-600'}`}>
+                    {tab.icon}
+                  </span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+                  {activeTab === tab.id && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500 rounded-full animate-in fade-in zoom-in duration-300"></div>}
+                </button>
+              ))
+            }
           </div>
 
           {/* Conditional Content Rendering */}
@@ -409,8 +549,8 @@ const ProfilePage: React.FC = () => {
                 {model.galleryImages && model.galleryImages.length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-4">
                     {model.galleryImages.slice(0, 3).map((img, i) => (
-                      <div 
-                        key={i} 
+                      <div
+                        key={i}
                         onClick={() => setSelectedImage(img)}
                         className="relative rounded-lg overflow-hidden group border border-white/5 bg-black flex items-center justify-center aspect-square min-h-[120px] sm:min-h-[140px] md:min-h-[160px] cursor-pointer hover:border-blue-500/50 transition-all"
                       >
@@ -423,7 +563,7 @@ const ProfilePage: React.FC = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-4">
-                    <div 
+                    <div
                       onClick={() => setSelectedImage(model.profileImage)}
                       className="relative rounded-lg overflow-hidden group border border-white/5 bg-black flex items-center justify-center aspect-square min-h-[120px] sm:min-h-[140px] md:min-h-[160px] cursor-pointer hover:border-blue-500/50 transition-all"
                     >
@@ -437,218 +577,228 @@ const ProfilePage: React.FC = () => {
               </div>
             )}
 
-            {activeTab === 'videos' && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {model.previewVideos && model.previewVideos.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-3 sm:gap-4">
-                    {model.previewVideos.slice(0, 3).map((videoUrl, i) => (
-                      <div 
-                        key={i} 
-                        onClick={() => setSelectedVideo(videoUrl)}
-                        className="aspect-[9/16] rounded-lg bg-[#1c2127] relative overflow-hidden group border border-white/5 cursor-pointer hover:border-blue-500/50 transition-all"
-                      >
-                        <video 
-                          src={videoUrl}
-                          className="h-full w-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-700"
-                          controls={false}
-                          preload="metadata"
-                          muted
-                        />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none">
-                          <div className="size-12 sm:size-14 rounded-full bg-blue-600/90 text-white flex items-center justify-center shadow-md backdrop-blur-sm group-hover:scale-110 transition-transform">
-                            <span className="material-symbols-outlined filled text-xl sm:text-2xl">play_arrow</span>
+            {
+              activeTab === 'videos' && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  {model.previewVideos && model.previewVideos.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-3 sm:gap-4">
+                      {model.previewVideos.slice(0, 3).map((videoUrl, i) => (
+                        <div
+                          key={i}
+                          onClick={() => setSelectedVideo(videoUrl)}
+                          className="aspect-[9/16] rounded-lg bg-[#1c2127] relative overflow-hidden group border border-white/5 cursor-pointer hover:border-blue-500/50 transition-all"
+                        >
+                          <video
+                            src={videoUrl}
+                            className="h-full w-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-700"
+                            controls={false}
+                            preload="metadata"
+                            muted
+                          />
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none">
+                            <div className="size-12 sm:size-14 rounded-full bg-blue-600/90 text-white flex items-center justify-center shadow-md backdrop-blur-sm group-hover:scale-110 transition-transform">
+                              <span className="material-symbols-outlined filled text-xl sm:text-2xl">play_arrow</span>
+                            </div>
+                            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-white/60 group-hover:text-white transition-colors">
+                              Vídeo {i + 1}
+                            </span>
                           </div>
-                          <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-white/60 group-hover:text-white transition-colors">
-                            Vídeo {i + 1}
-                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-center">
+                      <span className="material-symbols-outlined text-4xl sm:text-5xl text-slate-700 mb-3">videocam_off</span>
+                      <p className="text-slate-400 text-sm sm:text-base font-medium">Nenhum vídeo disponível ainda</p>
+                      <p className="text-slate-500 text-xs sm:text-sm mt-1">A modelo ainda não adicionou vídeos ao seu perfil.</p>
+                    </div>
+                  )}
+                </div>
+              )
+            }
+
+            {
+              activeTab === 'detalhes' && (
+                <div className="flex flex-col gap-4 sm:gap-5 animate-in slide-in-from-bottom-4 duration-500">
+                  <section className="bg-[#1c2127] border border-white/5 p-4 sm:p-5 rounded-lg shadow-sm">
+                    <h3 className="text-xs sm:text-sm font-black uppercase tracking-[0.1em] mb-3 text-blue-500">Apresentação Profissional</h3>
+                    <p className="text-slate-300 leading-relaxed text-sm sm:text-base italic font-medium">
+                      "{model.bio}"
+                    </p>
+                  </section>
+
+                  <section>
+                    <h3 className="text-xs sm:text-sm font-black uppercase tracking-[0.1em] mb-4 text-slate-500">Ficha Técnica e Medidas</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+                      {[
+                        { label: 'Idade', val: model.age ? `${model.age} anos` : 'Não informado', icon: 'cake' },
+                        { label: 'Altura', val: model.height || 'Não informado', icon: 'height' },
+                        { label: 'Peso', val: model.weight || 'Não informado', icon: 'fitness_center' }
+                      ].map(item => (
+                        <div key={item.label} className="bg-[#1c2127] border border-white/5 p-3 sm:p-4 rounded-lg flex flex-col items-center text-center group hover:border-blue-500/50 transition-all hover:-translate-y-1">
+                          <span className="material-symbols-outlined text-slate-600 mb-2 text-lg sm:text-xl group-hover:text-blue-500 transition-colors">{item.icon}</span>
+                          <span className="text-sm sm:text-base font-black text-white">{item.val}</span>
+                          <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">{item.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+              )
+            }
+
+            {
+              activeTab === 'avaliacoes' && (
+                <div className="animate-in slide-in-from-bottom-4 duration-500 space-y-4 sm:space-y-5">
+                  {/* Status: Locked/Form */}
+                  {!isRatingUnlocked ? (
+                    <div className="bg-[#1c2127] border border-white/5 p-5 sm:p-6 rounded-lg flex flex-col items-center text-center gap-3 sm:gap-4 shadow-sm">
+                      <div className="size-12 sm:size-14 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 mb-2 ring-2 ring-blue-500/5">
+                        <span className="material-symbols-outlined text-xl sm:text-2xl filled">lock</span>
+                      </div>
+                      <div>
+                        <h3 className="text-base sm:text-lg font-black uppercase italic tracking-tighter">Classificar Modelo</h3>
+                        <p className="text-slate-500 text-xs sm:text-sm mt-1 max-w-sm mx-auto">
+                          Para garantir avaliações reais, você precisa inserir o código recebido após o pagamento do contato.
+                        </p>
+                      </div>
+
+                      <div className="w-full max-w-xs sm:max-w-sm space-y-2 sm:space-y-3">
+                        <div className="relative group">
+                          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-base group-focus-within:text-blue-500 transition-colors">key</span>
+                          <input
+                            type="text"
+                            placeholder="CÓDIGO (ex: VER-1234)"
+                            value={ratingCodeInput}
+                            onChange={(e) => setRatingCodeInput(e.target.value.toUpperCase())}
+                            className="w-full bg-[#111418] border border-white/10 rounded-lg py-2.5 sm:py-3 pl-12 pr-3 text-center font-mono font-bold uppercase tracking-widest text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                          />
+                        </div>
+                        {ratingError && <p className="text-xs sm:text-sm text-rose-500 font-black uppercase tracking-widest">{ratingError}</p>}
+                        <button
+                          onClick={handleValidateCode}
+                          className="w-full py-2.5 sm:py-3 bg-blue-600 rounded-lg text-xs sm:text-sm font-black uppercase tracking-[0.1em] shadow-sm shadow-blue-900/40 hover:bg-blue-500 active:scale-95 transition-all"
+                        >
+                          Desbloquear Avaliação
+                        </button>
+                      </div>
+                    </div>
+                  ) : hasSubmittedRating ? (
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 p-5 sm:p-6 rounded-lg flex flex-col items-center text-center gap-2 sm:gap-3 animate-in zoom-in duration-500 shadow-sm">
+                      <span className="material-symbols-outlined text-3xl sm:text-4xl text-emerald-500 filled">check_circle</span>
+                      <h3 className="text-base sm:text-lg font-black uppercase italic tracking-tighter">Avaliação Enviada!</h3>
+                      <p className="text-slate-400 text-xs sm:text-sm">Obrigado por ajudar a comunidade com seu feedback real.</p>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSubmitRating} className="bg-[#1c2127] border border-white/5 p-4 sm:p-5 rounded-lg shadow-sm space-y-4 sm:space-y-5 animate-in fade-in duration-500">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                        <h3 className="text-sm sm:text-base font-black uppercase italic tracking-tighter">Sua Experiência Profissional</h3>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/10 rounded-full border border-blue-500/20">
+                          <span className="text-[9px] sm:text-[10px] font-black text-blue-500 uppercase tracking-widest">Código: {ratingCodeInput}</span>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-center">
-                    <span className="material-symbols-outlined text-4xl sm:text-5xl text-slate-700 mb-3">videocam_off</span>
-                    <p className="text-slate-400 text-sm sm:text-base font-medium">Nenhum vídeo disponível ainda</p>
-                    <p className="text-slate-500 text-xs sm:text-sm mt-1">A modelo ainda não adicionou vídeos ao seu perfil.</p>
-                  </div>
-                )}
-              </div>
-            )}
 
-            {activeTab === 'detalhes' && (
-              <div className="flex flex-col gap-4 sm:gap-5 animate-in slide-in-from-bottom-4 duration-500">
-                <section className="bg-[#1c2127] border border-white/5 p-4 sm:p-5 rounded-lg shadow-sm">
-                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-[0.1em] mb-3 text-blue-500">Apresentação Profissional</h3>
-                  <p className="text-slate-300 leading-relaxed text-sm sm:text-base italic font-medium">
-                    "{model.bio}"
-                  </p>
-                </section>
-
-                <section>
-                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-[0.1em] mb-4 text-slate-500">Ficha Técnica e Medidas</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
-                    {[
-                      { label: 'Idade', val: model.age ? `${model.age} anos` : 'Não informado', icon: 'cake' },
-                      { label: 'Altura', val: model.height || 'Não informado', icon: 'height' },
-                      { label: 'Peso', val: model.weight || 'Não informado', icon: 'fitness_center' },
-                      { label: 'Cintura', val: model.waist || 'Não informado', icon: 'straighten' },
-                      { label: 'Busto', val: model.bust || 'Não informado', icon: 'favorite' },
-                      { label: 'Olhos', val: model.eyes || 'Não informado', icon: 'visibility' },
-                      { label: 'Cabelos', val: model.hair || 'Não informado', icon: 'face' },
-                      { label: 'Calçado', val: model.shoeSize || 'Não informado', icon: 'ice_skating' }
-                    ].map(item => (
-                      <div key={item.label} className="bg-[#1c2127] border border-white/5 p-3 sm:p-4 rounded-lg flex flex-col items-center text-center group hover:border-blue-500/50 transition-all hover:-translate-y-1">
-                        <span className="material-symbols-outlined text-slate-600 mb-2 text-lg sm:text-xl group-hover:text-blue-500 transition-colors">{item.icon}</span>
-                        <span className="text-sm sm:text-base font-black text-white">{item.val}</span>
-                        <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">{item.label}</span>
+                      <div className="flex flex-col items-center gap-2 sm:gap-3 p-4 sm:p-5 bg-black/20 rounded-lg border border-white/5">
+                        <span className="text-xs sm:text-sm font-black uppercase tracking-[0.1em] text-slate-500">Sua Nota</span>
+                        <div className="flex gap-2 sm:gap-2.5">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setUserRating(star)}
+                              className={`size-10 sm:size-12 rounded-lg flex items-center justify-center transition-all ${userRating >= star ? 'bg-amber-500/10 text-amber-500' : 'bg-white/5 text-slate-700 hover:text-slate-500'
+                                }`}
+                            >
+                              <span className={`material-symbols-outlined text-lg sm:text-xl ${userRating >= star ? 'filled' : ''}`}>star</span>
+                            </button>
+                          ))}
+                        </div>
+                        <span className="text-xs sm:text-sm font-black uppercase text-amber-500">
+                          {userRating === 1 && 'Ruim'}
+                          {userRating === 2 && 'Regular'}
+                          {userRating === 3 && 'Bom'}
+                          {userRating === 4 && 'Ótimo'}
+                          {userRating === 5 && 'Excepcional'}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                </section>
-              </div>
-            )}
 
-            {activeTab === 'avaliacoes' && (
-              <div className="animate-in slide-in-from-bottom-4 duration-500 space-y-4 sm:space-y-5">
-                {/* Status: Locked/Form */}
-                {!isRatingUnlocked ? (
-                  <div className="bg-[#1c2127] border border-white/5 p-5 sm:p-6 rounded-lg flex flex-col items-center text-center gap-3 sm:gap-4 shadow-sm">
-                    <div className="size-12 sm:size-14 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 mb-2 ring-2 ring-blue-500/5">
-                      <span className="material-symbols-outlined text-xl sm:text-2xl filled">lock</span>
-                    </div>
-                    <div>
-                      <h3 className="text-base sm:text-lg font-black uppercase italic tracking-tighter">Classificar Modelo</h3>
-                      <p className="text-slate-500 text-xs sm:text-sm mt-1 max-w-sm mx-auto">
-                        Para garantir avaliações reais, você precisa inserir o código recebido após o pagamento do contato.
-                      </p>
-                    </div>
-                    
-                    <div className="w-full max-w-xs sm:max-w-sm space-y-2 sm:space-y-3">
-                      <div className="relative group">
-                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-base group-focus-within:text-blue-500 transition-colors">key</span>
-                        <input 
-                          type="text" 
-                          placeholder="CÓDIGO (ex: VER-1234)"
-                          value={ratingCodeInput}
-                          onChange={(e) => setRatingCodeInput(e.target.value.toUpperCase())}
-                          className="w-full bg-[#111418] border border-white/10 rounded-lg py-2.5 sm:py-3 pl-12 pr-3 text-center font-mono font-bold uppercase tracking-widest text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                        />
-                      </div>
-                      {ratingError && <p className="text-xs sm:text-sm text-rose-500 font-black uppercase tracking-widest">{ratingError}</p>}
-                      <button 
-                        onClick={handleValidateCode}
-                        className="w-full py-2.5 sm:py-3 bg-blue-600 rounded-lg text-xs sm:text-sm font-black uppercase tracking-[0.1em] shadow-sm shadow-blue-900/40 hover:bg-blue-500 active:scale-95 transition-all"
-                      >
-                        Desbloquear Avaliação
-                      </button>
-                    </div>
-                  </div>
-                ) : hasSubmittedRating ? (
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-5 sm:p-6 rounded-lg flex flex-col items-center text-center gap-2 sm:gap-3 animate-in zoom-in duration-500 shadow-sm">
-                    <span className="material-symbols-outlined text-3xl sm:text-4xl text-emerald-500 filled">check_circle</span>
-                    <h3 className="text-base sm:text-lg font-black uppercase italic tracking-tighter">Avaliação Enviada!</h3>
-                    <p className="text-slate-400 text-xs sm:text-sm">Obrigado por ajudar a comunidade com seu feedback real.</p>
-                  </div>
-                ) : (
-                  <form onSubmit={handleSubmitRating} className="bg-[#1c2127] border border-white/5 p-4 sm:p-5 rounded-lg shadow-sm space-y-4 sm:space-y-5 animate-in fade-in duration-500">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                      <h3 className="text-sm sm:text-base font-black uppercase italic tracking-tighter">Sua Experiência Profissional</h3>
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/10 rounded-full border border-blue-500/20">
-                         <span className="text-[9px] sm:text-[10px] font-black text-blue-500 uppercase tracking-widest">Código: {ratingCodeInput}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-center gap-2 sm:gap-3 p-4 sm:p-5 bg-black/20 rounded-lg border border-white/5">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-[0.1em] text-slate-500">Sua Nota</span>
-                      <div className="flex gap-2 sm:gap-2.5">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button
-                            key={star}
-                            type="button"
-                            onClick={() => setUserRating(star)}
-                            className={`size-10 sm:size-12 rounded-lg flex items-center justify-center transition-all ${
-                              userRating >= star ? 'bg-amber-500/10 text-amber-500' : 'bg-white/5 text-slate-700 hover:text-slate-500'
-                            }`}
-                          >
-                            <span className={`material-symbols-outlined text-lg sm:text-xl ${userRating >= star ? 'filled' : ''}`}>star</span>
-                          </button>
-                        ))}
-                      </div>
-                      <span className="text-xs sm:text-sm font-black uppercase text-amber-500">
-                        {userRating === 1 && 'Ruim'}
-                        {userRating === 2 && 'Regular'}
-                        {userRating === 3 && 'Bom'}
-                        {userRating === 4 && 'Ótimo'}
-                        {userRating === 5 && 'Excepcional'}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                       <label className="text-xs sm:text-sm font-black uppercase tracking-[0.1em] text-slate-600">Comentário (Opcional)</label>
-                       <textarea 
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs sm:text-sm font-black uppercase tracking-[0.1em] text-slate-600">Comentário (Opcional)</label>
+                        <textarea
                           rows={3}
                           value={userComment}
                           onChange={(e) => setUserComment(e.target.value)}
                           placeholder="Como foi trabalhar com esta modelo? Seja profissional no seu feedback."
                           className="w-full bg-[#111418] border border-white/10 rounded-lg p-3 sm:p-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"
-                       />
-                    </div>
+                        />
+                      </div>
 
-                    <button 
-                      type="submit"
-                      className="w-full py-3 sm:py-3.5 bg-blue-600 rounded-lg text-xs sm:text-sm font-black uppercase tracking-[0.1em] shadow-sm shadow-blue-900/40 hover:bg-blue-500 active:scale-95 transition-all"
-                    >
-                      Publicar Classificação
-                    </button>
-                  </form>
-                )}
+                      <button
+                        type="submit"
+                        className="w-full py-3 sm:py-3.5 bg-blue-600 rounded-lg text-xs sm:text-sm font-black uppercase tracking-[0.1em] shadow-sm shadow-blue-900/40 hover:bg-blue-500 active:scale-95 transition-all"
+                      >
+                        Publicar Classificação
+                      </button>
+                    </form>
+                  )}
 
-                {/* Existing Mock Reviews */}
-                <div className="space-y-3 sm:space-y-4">
-                   <h4 className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-slate-600 px-2 sm:px-3 flex items-center gap-2">
-                     <span className="material-symbols-outlined text-base sm:text-lg">history_edu</span>
-                     Relatos de Contratantes
-                   </h4>
-                   {[
-                     { user: 'Recruiter_Maputo', rating: 5, comment: 'Extremamente profissional, chegou no horário e entregou fotos maravilhosas para a nossa campanha.', date: 'Há 1 semana' },
-                     { user: 'Estúdio_Luz', rating: 4, comment: 'Boa comunicação e excelente desenvoltura no set. Recomendamos para trabalhos editoriais.', date: 'Há 3 semanas' }
-                   ].map((rev, i) => (
-                     <div key={i} className="bg-[#1c2127] border border-white/5 p-4 sm:p-5 rounded-lg flex flex-col gap-2 sm:gap-3 shadow-sm hover:border-blue-500/10 transition-colors">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                           <div className="flex items-center gap-2 sm:gap-3">
+                  {/* Relatos de Contratantes Reais */}
+                  <div className="space-y-3 sm:space-y-4">
+                    <h4 className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-slate-600 px-2 sm:px-3 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-base sm:text-lg">history_edu</span>
+                      Relatos de Contratantes
+                    </h4>
+
+                    {reviewsLoading ? (
+                      <div className="flex justify-center py-8">
+                        <span className="material-symbols-outlined animate-spin text-slate-700">refresh</span>
+                      </div>
+                    ) : reviews.length > 0 ? (
+                      reviews.map((rev, i) => (
+                        <div key={rev.id || i} className="bg-[#1c2127] border border-white/5 p-4 sm:p-5 rounded-lg flex flex-col gap-2 sm:gap-3 shadow-sm hover:border-blue-500/10 transition-colors">
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                            <div className="flex items-center gap-2 sm:gap-3">
                               <div className="size-8 sm:size-10 rounded-full bg-blue-600/10 flex items-center justify-center font-black text-xs sm:text-sm text-blue-500">
-                                 {rev.user[0]}
+                                {(rev.user_display_name || 'U')[0]}
                               </div>
                               <div>
-                                 <p className="text-xs sm:text-sm font-black uppercase tracking-tight text-white">{rev.user}</p>
-                                 <div className="flex gap-0.5 mt-1">
-                                    {[1,2,3,4,5].map(s => (
-                                      <span key={s} className={`material-symbols-outlined text-xs sm:text-sm ${s <= rev.rating ? 'text-amber-500 filled' : 'text-slate-700'}`}>star</span>
-                                    ))}
-                                 </div>
+                                <p className="text-xs sm:text-sm font-black uppercase tracking-tight text-white">{rev.user_display_name || 'Usuário Verificado'}</p>
+                                <div className="flex gap-0.5 mt-1">
+                                  {[1, 2, 3, 4, 5].map(s => (
+                                    <span key={s} className={`material-symbols-outlined text-xs sm:text-sm ${s <= rev.rating ? 'text-amber-500 filled' : 'text-slate-700'}`}>star</span>
+                                  ))}
+                                </div>
                               </div>
-                           </div>
-                           <span className="text-[9px] sm:text-[10px] font-black text-slate-600 uppercase tracking-widest">{rev.date}</span>
+                            </div>
+                            <span className="text-[9px] sm:text-[10px] font-black text-slate-600 uppercase tracking-widest">
+                              {new Date(rev.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-slate-400 text-xs sm:text-sm italic font-medium leading-relaxed">
+                            "{rev.comment}"
+                          </p>
                         </div>
-                        <p className="text-slate-400 text-xs sm:text-sm italic font-medium leading-relaxed">
-                          "{rev.comment}"
-                        </p>
-                     </div>
-                   ))}
+                      ))
+                    ) : (
+                      <div className="bg-[#1c2127] border border-white/5 p-8 rounded-lg text-center">
+                        <p className="text-slate-500 text-sm italic font-medium">Nenhuma avaliação real ainda. Seja o primeiro a avaliar após contratar!</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            }
           </div>
         </div>
 
         {/* Right Sidebar: Sticky Call to Action */}
-        <aside className="lg:col-span-4 flex flex-col gap-4 sm:gap-5 lg:gap-3 order-first lg:order-last relative z-10">
+        <aside className="lg:col-span-5 flex flex-col gap-4 sm:gap-5 lg:gap-5 order-first lg:order-last relative z-10">
           <div className="lg:sticky lg:top-20 space-y-4 sm:space-y-5 lg:space-y-3">
-            
+
             {/* Payment & Contact Card */}
             <div className="relative rounded-lg sm:rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 p-4 sm:p-5 lg:p-3 text-white overflow-hidden shadow-sm shadow-blue-900/40">
               <div className="absolute -top-3 -right-3 size-16 bg-white/10 rounded-full blur-xl"></div>
-              
+
               <div className="relative z-10">
                 <div className="flex items-center gap-2 sm:gap-2.5 mb-4 sm:mb-5 lg:mb-3">
                   <div className="size-10 sm:size-12 lg:size-8 rounded-lg lg:rounded-md bg-white/20 backdrop-blur-md flex items-center justify-center">
@@ -676,25 +826,29 @@ const ProfilePage: React.FC = () => {
                 <div className="bg-black/10 backdrop-blur-md rounded-lg lg:rounded-md p-3 sm:p-4 lg:p-2.5 border border-white/10 mb-4 sm:mb-5 lg:mb-3">
                   <div className="flex justify-between items-center mb-1 sm:mb-1.5 lg:mb-0.5">
                     <span className="text-[9px] sm:text-[10px] lg:text-[8px] uppercase font-bold tracking-[0.1em] opacity-60">Taxa de Acesso</span>
-                    <span className="text-lg sm:text-xl lg:text-base font-black">200 MT</span>
+                    <span className="text-lg sm:text-xl lg:text-base font-black">50 MT</span>
                   </div>
                   <p className="text-[8px] sm:text-[9px] lg:text-[7px] opacity-60 leading-tight font-medium">Pagamento único via M-Pesa ou eMola. Sem comissões.</p>
                 </div>
 
-                {isContactUnlocked && model?.phoneNumber ? (
+                {isContactUnlocked ? (
                   <div className="w-full rounded-lg lg:rounded-md bg-emerald-500/20 border-2 border-emerald-500/30 p-3 sm:p-4 lg:p-2.5 space-y-2">
                     <div className="flex items-center justify-center gap-2 mb-2">
                       <span className="material-symbols-outlined text-emerald-500 text-sm">phone</span>
                       <p className="text-[9px] sm:text-[10px] lg:text-[8px] font-black uppercase tracking-widest text-emerald-500">Contato Desbloqueado</p>
                     </div>
-                    <a 
-                      href={`https://wa.me/${model.phoneNumber.replace(/\D/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block text-center text-base sm:text-lg lg:text-sm font-black text-white hover:text-emerald-300 transition-colors"
-                    >
-                      {model.phoneNumber}
-                    </a>
+                    {model?.phoneNumber ? (
+                      <a
+                        href={`https://wa.me/${model.phoneNumber.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-center text-base sm:text-lg lg:text-sm font-black text-white hover:text-emerald-300 transition-colors"
+                      >
+                        {model.phoneNumber}
+                      </a>
+                    ) : (
+                      <p className="text-center text-[10px] text-white/70 italic">Número de telefone indisponível.</p>
+                    )}
                     <div className="flex items-center justify-center gap-1 text-[8px] sm:text-[9px] lg:text-[7px] text-emerald-400">
                       <span className="material-symbols-outlined text-xs">timer</span>
                       <span>Expira em: {formatTime(timeRemaining)}</span>
@@ -702,7 +856,7 @@ const ProfilePage: React.FC = () => {
                   </div>
                 ) : (
                   model?.id && (
-                    <Link 
+                    <Link
                       to={`/pagamento/${model.id}`}
                       className="w-full rounded-lg lg:rounded-md bg-white py-3 sm:py-3.5 lg:py-2 text-blue-900 font-black text-center shadow-sm hover:bg-blue-50 transition-all flex items-center justify-center gap-2 group uppercase tracking-widest text-xs sm:text-sm lg:text-[9px]"
                     >
@@ -713,15 +867,13 @@ const ProfilePage: React.FC = () => {
                 )}
               </div>
             </div>
-
           </div>
         </aside>
-
       </div>
 
       {/* Image Modal */}
       {selectedImage && (
-        <div 
+        <div
           className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-300"
           onClick={() => setSelectedImage(null)}
         >
@@ -733,8 +885,8 @@ const ProfilePage: React.FC = () => {
             <span className="material-symbols-outlined text-xl sm:text-2xl">close</span>
           </button>
           <div className="max-w-7xl max-h-[95vh] sm:max-h-[90vh] w-full h-full flex items-center justify-center">
-            <img 
-              src={selectedImage} 
+            <img
+              src={selectedImage}
               className="max-w-full max-h-full object-contain rounded-lg"
               alt="Imagem ampliada"
               onClick={(e) => e.stopPropagation()}
@@ -745,7 +897,7 @@ const ProfilePage: React.FC = () => {
 
       {/* Video Modal */}
       {selectedVideo && (
-        <div 
+        <div
           className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-300"
           onClick={() => setSelectedVideo(null)}
         >
@@ -757,8 +909,8 @@ const ProfilePage: React.FC = () => {
             <span className="material-symbols-outlined text-xl sm:text-2xl">close</span>
           </button>
           <div className="max-w-7xl max-h-[95vh] sm:max-h-[90vh] w-full h-full flex items-center justify-center p-4">
-            <video 
-              src={selectedVideo} 
+            <video
+              src={selectedVideo}
               className="max-w-full max-h-full object-contain rounded-lg"
               controls
               autoPlay
