@@ -399,7 +399,7 @@ const ProfilePage: React.FC = () => {
 
             {/* Profile Photo Card - Large on Mobile */}
             <div className="w-full lg:w-auto lg:max-w-[140px] shrink-0 flex justify-center lg:justify-start">
-              <div className="w-full aspect-[3/4] sm:aspect-[3/4] lg:aspect-[3/4] max-h-[70vh] sm:max-h-[60vh] lg:max-h-none lg:w-[140px] rounded-none sm:rounded-lg overflow-hidden border-0 sm:border border-white/5 shadow-sm relative group">
+              <div className="w-full aspect-[3/4] sm:aspect-[3/4] lg:aspect-[3/4] max-h-[45vh] sm:max-h-[60vh] lg:max-h-none lg:w-[140px] rounded-none sm:rounded-lg overflow-hidden border-0 sm:border border-white/5 shadow-sm relative group">
                 <button
                   onClick={() => setSelectedImage(model.profileImage)}
                   className="w-full h-full block cursor-pointer transition-opacity hover:opacity-90"
