@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import LandingPage from './pages/LandingPage';
+
 import GalleryPage from './pages/GalleryPage';
 import RegisterPage from './pages/RegisterPage';
 import EditProfilePage from './pages/EditProfilePage';
@@ -97,7 +97,7 @@ const App: React.FC = () => {
           <main className="flex-grow">
             <Routes>
               <Route path="/" element={<GalleryPage />} />
-              <Route path="/info" element={<LandingPage />} />
+
               <Route path="/cadastro" element={<RegisterPage />} />
               <Route path="/login" element={<LoginPage onLogin={login} />} />
               <Route path="/dashboard" element={user?.role === 'model' ? <DashboardPage user={user} /> : user?.role === 'admin' ? <Navigate to="/admin" /> : <Navigate to="/login" />} />

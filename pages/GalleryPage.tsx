@@ -319,7 +319,7 @@ const GalleryPage: React.FC = () => {
       {/* Grade de Modelos */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-4">
         <div className="flex flex-col items-center mb-6">
-          <h2 className="text-2xl font-black font-display uppercase italic tracking-tighter mb-2">Modelos</h2>
+          <h2 className="text-2xl font-black font-display uppercase italic tracking-tighter mb-2">Acompanhantes</h2>
           <div className="h-0.5 w-10 bg-blue-600 rounded-full"></div>
         </div>
 
@@ -375,8 +375,8 @@ const GalleryPage: React.FC = () => {
         {displayedModels.length === 0 && (
           <div className="py-8 flex flex-col items-center justify-center text-center animate-in fade-in duration-500">
             <span className="material-symbols-outlined text-4xl text-slate-700 mb-3">location_off</span>
-            <h3 className="text-base font-bold">Nenhum talento encontrado</h3>
-            <p className="text-slate-500 text-xs mt-1 max-w-xs mx-auto">Não encontramos modelos em <span className="text-blue-500">{activeProvince}</span> com os filtros selecionados.</p>
+            <h3 className="text-base font-bold">Nenhum Acompanhante encontrado</h3>
+            <p className="text-slate-500 text-xs mt-1 max-w-xs mx-auto">Não encontramos acompanhantes em <span className="text-blue-500">{activeProvince}</span> com os filtros selecionados.</p>
             <button
               onClick={clearFilters}
               className="mt-4 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:underline"
@@ -394,7 +394,7 @@ const GalleryPage: React.FC = () => {
               className="flex items-center gap-2 rounded-full border border-white/10 px-8 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all active:scale-95 group"
             >
               <span className="material-symbols-outlined text-blue-500 group-hover:rotate-180 transition-transform">autorenew</span>
-              Mais Modelos
+              Mais Acompanhantes
             </button>
           </div>
         )}

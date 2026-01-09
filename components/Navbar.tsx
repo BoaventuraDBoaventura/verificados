@@ -11,7 +11,7 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const isActive = (path: string) => location.pathname === path;
 
   return (
@@ -23,34 +23,26 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
         </Link>
 
         <nav className="hidden md:flex items-center gap-8">
-          <Link 
-            to="/" 
-            className={`text-xs font-black uppercase tracking-widest transition-colors ${
-              isActive('/') ? 'text-white' : 'text-slate-400 hover:text-white'
-            }`}
+          <Link
+            to="/"
+            className={`text-xs font-black uppercase tracking-widest transition-colors ${isActive('/') ? 'text-white' : 'text-slate-400 hover:text-white'
+              }`}
           >
             Modelos
           </Link>
-          <Link 
-            to="/info" 
-            className={`text-xs font-black uppercase tracking-widest transition-colors ${
-              isActive('/info') ? 'text-white' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Como Funciona
-          </Link>
+
         </nav>
 
         <div className="flex items-center gap-4">
           {user ? (
             <div className="flex items-center gap-4">
-              <Link 
-                to={user.role === 'admin' ? "/admin" : "/dashboard"} 
+              <Link
+                to={user.role === 'admin' ? "/admin" : "/dashboard"}
                 className="text-[10px] font-black uppercase tracking-widest text-blue-500 border border-blue-500/20 px-4 py-2 rounded-lg bg-blue-500/5 hover:bg-blue-500 hover:text-white transition-all"
               >
                 {user.role === 'admin' ? "Portal Admin" : "Meu Painel"}
               </Link>
-              <button 
+              <button
                 onClick={() => { onLogout(); navigate('/'); }}
                 className="text-[10px] font-black text-slate-500 hover:text-red-500 uppercase tracking-widest transition-colors"
               >
