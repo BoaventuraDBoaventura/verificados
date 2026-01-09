@@ -771,7 +771,7 @@ const AdminDashboardPage: React.FC = () => {
                                                 <span className="material-symbols-outlined text-xs">visibility</span>
                                                 Ver
                                             </Link>
-                                            {model.status === VerificationStatus.PENDING && (
+                                            {model.status !== VerificationStatus.APPROVED && (
                                                 <button
                                                     onClick={() => handleUpdateStatus(model.id, VerificationStatus.APPROVED)}
                                                     className="px-3 py-2 bg-emerald-600/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-[9px] font-black uppercase hover:bg-emerald-600 hover:text-white transition-all"
