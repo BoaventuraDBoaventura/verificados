@@ -52,7 +52,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
           ) : (
             <>
               <Link to="/login" className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors hidden sm:block">Login</Link>
-              <Link to="/cadastro" className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-blue-900/20 hover:bg-blue-500 transition-all active:scale-95 italic">
+              <Link to="/cadastro" className="rounded-xl bg-blue-600 px-3 py-2 sm:px-5 sm:py-2.5 text-[10px] font-black uppercase tracking-widest text-white shadow-xl shadow-blue-900/20 hover:bg-blue-500 transition-all active:scale-95 italic whitespace-nowrap">
                 Sou Acompanhante
               </Link>
             </>
