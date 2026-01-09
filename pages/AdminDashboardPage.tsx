@@ -782,11 +782,20 @@ const AdminDashboardPage: React.FC = () => {
                                             )}
                                             <button
                                                 onClick={() => handleDeleteModel(model.id, model.artisticName)}
-                                                className="px-3 py-2 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-lg text-[9px] font-black uppercase hover:bg-rose-500 hover:text-white transition-all"
+                                                className="px-3 py-2 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-lg text-[9px] font-black uppercase hover:bg-rose-600 hover:text-white transition-all"
                                                 title="Eliminar Modelo"
                                             >
                                                 <span className="material-symbols-outlined text-xs">delete</span>
                                             </button>
+                                            {model.status === VerificationStatus.APPROVED && (
+                                                <button
+                                                    onClick={() => handleUpdateStatus(model.id, VerificationStatus.REJECTED)}
+                                                    className="px-3 py-2 bg-amber-600/10 border border-amber-600/20 text-amber-500 rounded-lg text-[9px] font-black uppercase hover:bg-amber-600 hover:text-white transition-all"
+                                                    title="Remover Verificação"
+                                                >
+                                                    <span className="material-symbols-outlined text-xs">unpublished</span>
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={() => setSelectedModelMedia(model)}
                                                 className="px-3 py-2 bg-blue-600/10 border border-blue-500/20 text-blue-500 rounded-lg text-[9px] font-black uppercase hover:bg-blue-600 hover:text-white transition-all"
