@@ -63,6 +63,7 @@ const AdminDashboardPage: React.FC = () => {
                     profileImage: row.profile_image || '',
                     previewVideos: row.preview_videos || [],
                     galleryImages: row.gallery_images || [],
+                    email: row.email,
                     phoneNumber: row.phone_number,
                     isVerified: row.is_verified ?? row.status === 'Aprovado',
                     status:
@@ -603,6 +604,23 @@ const AdminDashboardPage: React.FC = () => {
                                                             {model.categories[0]}
                                                         </span>
                                                     )}
+                                                    {model.phoneNumber && (
+                                                        <a
+                                                            href={`https://wa.me/${model.phoneNumber.replace(/\D/g, '')}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-1.5 text-[10px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/5 px-3 py-1 rounded-full border border-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all"
+                                                        >
+                                                            <span className="material-symbols-outlined text-xs">call</span>
+                                                            {model.phoneNumber}
+                                                        </a>
+                                                    )}
+                                                    {model.email && (
+                                                        <span className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white/5 px-3 py-1 rounded-full border border-white/10">
+                                                            <span className="material-symbols-outlined text-xs">email</span>
+                                                            {model.email}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="text-right">
@@ -734,9 +752,27 @@ const AdminDashboardPage: React.FC = () => {
                                             <h3 className="text-xs font-black uppercase italic tracking-tighter group-hover:text-blue-500 transition-colors truncate">{model.artisticName}</h3>
                                         </Link>
                                         <div className="flex items-center gap-2 text-[9px] text-slate-500 font-bold">
-                                            <span className="material-symbols-outlined text-xs">location_on</span>
                                             <span className="truncate">{model.location}</span>
                                         </div>
+                                        {model.phoneNumber && (
+                                            <div className="flex items-center gap-2 text-[9px] text-emerald-500 font-black uppercase">
+                                                <span className="material-symbols-outlined text-xs">call</span>
+                                                <a
+                                                    href={`https://wa.me/${model.phoneNumber.replace(/\D/g, '')}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="hover:underline"
+                                                >
+                                                    {model.phoneNumber}
+                                                </a>
+                                            </div>
+                                        )}
+                                        {model.email && (
+                                            <div className="flex items-center gap-2 text-[9px] text-slate-400 font-bold break-all">
+                                                <span className="material-symbols-outlined text-xs">email</span>
+                                                <span>{model.email}</span>
+                                            </div>
+                                        )}
                                         {model.categories && model.categories.length > 0 && (
                                             <div className="flex flex-wrap gap-1">
                                                 {model.categories.slice(0, 2).map((cat, idx) => (

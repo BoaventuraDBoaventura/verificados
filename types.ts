@@ -10,6 +10,7 @@ export interface Model {
   id: string;
   slug?: string;
   artisticName: string;
+  email?: string;
   age: number;
   location: string;
   categories: string[];
