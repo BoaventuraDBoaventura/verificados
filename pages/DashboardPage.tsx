@@ -458,14 +458,17 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
           {/* Profile Preview */}
           <div className="rounded-xl bg-[#1c2127] border border-white/5 p-4 sm:p-6 shadow-xl">
             <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-              <img
-                src={modelData.profile_image || 'https://via.placeholder.com/128?text=Sem+Foto'}
-                className="size-12 sm:size-16 rounded-full object-cover"
-                alt={artisticName}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://via.placeholder.com/128?text=Sem+Foto';
-                }}
-              />
+              {modelData.profile_image ? (
+                <img
+                  src={modelData.profile_image}
+                  className="size-12 sm:size-16 rounded-full object-cover"
+                  alt={artisticName}
+                />
+              ) : (
+                <div className="size-12 sm:size-16 rounded-full bg-[#111418] flex items-center justify-center border border-white/5">
+                  <span className="material-symbols-outlined text-xl text-slate-700">person</span>
+                </div>
+              )}
               <div>
                 <h3 className="text-sm sm:text-base font-bold">{artisticName}</h3>
                 <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-widest">ID: #{modelData.id?.slice(0, 8) || 'N/A'}</p>

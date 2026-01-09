@@ -33,6 +33,7 @@ const AdminDashboardPage: React.FC = () => {
     const [newCategory, setNewCategory] = useState('');
     const [loading, setLoading] = useState(false);
     const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+    const [selectedModelMedia, setSelectedModelMedia] = useState<Model | null>(null);
     const [logs, setLogs] = useState<AdminLog[]>([]);
 
     const fetchLogs = async () => {
@@ -59,9 +60,7 @@ const AdminDashboardPage: React.FC = () => {
                     location: `${row.city}, ${row.province}`,
                     categories: row.categories || [],
                     bio: row.bio || '',
-                    profileImage:
-                        row.profile_image ||
-                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop',
+                    profileImage: row.profile_image || '',
                     previewVideos: row.preview_videos || [],
                     galleryImages: row.gallery_images || [],
                     phoneNumber: row.phone_number,
@@ -535,7 +534,15 @@ const AdminDashboardPage: React.FC = () => {
                                     {/* Lado Esquerdo: Mídia */}
                                     <div className="lg:w-72 shrink-0 space-y-4">
                                         <div className="aspect-[3/4] rounded-[2rem] overflow-hidden relative border-4 border-white/5">
-                                            <img src={model.profileImage} className="size-full object-cover" alt="Review" />
+                                            <div className="size-full">
+                                                {model.profileImage ? (
+                                                    <img src={model.profileImage} className="size-full object-cover" alt="Review" />
+                                                ) : (
+                                                    <div className="size-full bg-[#1c2127] flex items-center justify-center">
+                                                        <span className="material-symbols-outlined text-4xl text-slate-700">person</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-6">
                                                 <button className="w-full py-3 bg-white/10 backdrop-blur-md border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/20 transition-all flex items-center justify-center gap-2">
                                                     <span className="material-symbols-outlined text-sm">zoom_in</span>
@@ -641,6 +648,38 @@ const AdminDashboardPage: React.FC = () => {
                                                 Rejeitar Perfil
                                             </button>
                                         </div>
+
+                                        <div className="mt-6 pt-6 border-t border-white/5">
+                                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-4 flex items-center gap-2">
+                                                <span className="material-symbols-outlined text-sm">collections</span>
+                                                Galeria e Previews Públicos
+                                            </h4>
+                                            <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+                                                {/* Gallery Images */}
+                                                {model.galleryImages.map((img, idx) => (
+                                                    <div key={`gal-${idx}`} className="aspect-square rounded-xl overflow-hidden border border-white/10 relative group/img cursor-pointer" onClick={() => setSelectedVideo(img)}>
+                                                        <img src={img} className="size-full object-cover group-hover/img:scale-110 transition-transform" />
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                            <span className="material-symbols-outlined text-white text-sm">zoom_in</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {/* Preview Videos */}
+                                                {model.previewVideos.map((vid, idx) => (
+                                                    <div key={`pre-${idx}`} className="aspect-square rounded-xl overflow-hidden border border-white/10 bg-blue-600/10 flex items-center justify-center relative group/vid cursor-pointer" onClick={() => setSelectedVideo(vid)}>
+                                                        <span className="material-symbols-outlined text-blue-500">play_circle</span>
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/vid:opacity-100 transition-opacity flex items-center justify-center">
+                                                            <span className="material-symbols-outlined text-white text-sm">play_arrow</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {model.galleryImages.length === 0 && model.previewVideos.length === 0 && (
+                                                    <div className="col-span-full py-4 text-center text-[9px] text-slate-600 uppercase font-black italic tracking-widest bg-white/[0.02] rounded-xl border border-dashed border-white/5">
+                                                        Nenhuma mídia adicional enviada
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -665,7 +704,13 @@ const AdminDashboardPage: React.FC = () => {
                                 <div key={model.id} className="bg-[#0d1218] border border-white/5 rounded-2xl p-4 group hover:border-blue-500/30 transition-all shadow-lg">
                                     {/* Imagem de Perfil */}
                                     <div className="aspect-[3/4] rounded-xl overflow-hidden relative mb-3 border-2 border-white/5">
-                                        <img src={model.profileImage} className="w-full h-full object-cover" alt={model.artisticName} />
+                                        {model.profileImage ? (
+                                            <img src={model.profileImage} className="w-full h-full object-cover" alt={model.artisticName} />
+                                        ) : (
+                                            <div className="w-full h-full bg-[#1c2127] flex items-center justify-center">
+                                                <span className="material-symbols-outlined text-4xl text-slate-700">person</span>
+                                            </div>
+                                        )}
                                         <div className="absolute top-2 right-2">
                                             {model.isVerified ? (
                                                 <span className="px-2 py-1 bg-emerald-500/90 backdrop-blur-sm rounded-lg text-[8px] font-black text-white uppercase flex items-center gap-1">
@@ -742,6 +787,13 @@ const AdminDashboardPage: React.FC = () => {
                                             >
                                                 <span className="material-symbols-outlined text-xs">delete</span>
                                             </button>
+                                            <button
+                                                onClick={() => setSelectedModelMedia(model)}
+                                                className="px-3 py-2 bg-blue-600/10 border border-blue-500/20 text-blue-500 rounded-lg text-[9px] font-black uppercase hover:bg-blue-600 hover:text-white transition-all"
+                                                title="Ver Todas as Mídias"
+                                            >
+                                                <span className="material-symbols-outlined text-xs">perm_media</span>
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -782,6 +834,116 @@ const AdminDashboardPage: React.FC = () => {
                         >
                             Seu navegador não suporta vídeo HTML5.
                         </video>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Mídia Completa da Modelo */}
+            {selectedModelMedia && (
+                <div
+                    className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 md:p-10 animate-in fade-in duration-300"
+                    onClick={() => setSelectedModelMedia(null)}
+                >
+                    <div
+                        className="bg-[#0d1218] border border-white/10 rounded-[2.5rem] w-full max-w-5xl max-h-[90vh] overflow-y-auto no-scrollbar relative flex flex-col p-8 md:p-12 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={() => setSelectedModelMedia(null)}
+                            className="absolute top-6 right-6 size-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all z-10"
+                        >
+                            <span className="material-symbols-outlined">close</span>
+                        </button>
+
+                        <div className="flex flex-col md:flex-row gap-10">
+                            {/* Perfil */}
+                            <div className="md:w-64 shrink-0 space-y-6">
+                                <div className="aspect-[3/4] rounded-3xl overflow-hidden border-4 border-white/5 shadow-2xl relative group">
+                                    {selectedModelMedia.profileImage ? (
+                                        <img src={selectedModelMedia.profileImage} className="size-full object-cover" alt="Profile" />
+                                    ) : (
+                                        <div className="size-full bg-[#1c2127] flex items-center justify-center">
+                                            <span className="material-symbols-outlined text-6xl text-slate-700">person</span>
+                                        </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <span className="text-[10px] font-black uppercase text-white tracking-widest">Foto de Perfil</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-black uppercase italic tracking-tighter mb-1">{selectedModelMedia.artisticName}</h3>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-xs">location_on</span>
+                                        {selectedModelMedia.location}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Conteúdo */}
+                            <div className="flex-grow space-y-10">
+                                {/* Galeria */}
+                                <section>
+                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-blue-500 mb-6 flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-lg">imagesmode</span>
+                                        Portfólio (Galeria)
+                                    </h4>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-4">
+                                        {selectedModelMedia.galleryImages.map((img, idx) => (
+                                            <div key={idx} className="aspect-square rounded-2xl overflow-hidden border border-white/10 relative group cursor-pointer" onClick={() => setSelectedVideo(img)}>
+                                                <img src={img} className="size-full object-cover group-hover:scale-110 transition-transform" />
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                                                    <span className="material-symbols-outlined text-white text-2xl">zoom_in</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {selectedModelMedia.galleryImages.length === 0 && (
+                                            <div className="col-span-full py-16 text-center border-2 border-dashed border-white/5 rounded-3xl opacity-30 italic text-xs">
+                                                Nenhuma foto na galeria.
+                                            </div>
+                                        )}
+                                    </div>
+                                </section>
+
+                                {/* Vídeos */}
+                                <section>
+                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-emerald-500 mb-6 flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-lg">videocam</span>
+                                        Vídeos de Preview e Verificação
+                                    </h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {/* Vídeo de Verificação (Privado) */}
+                                        {selectedModelMedia.verificationVideo && (
+                                            <div className="space-y-2">
+                                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest pl-1">Vídeo de Verificação (Interno)</p>
+                                                <div className="aspect-video rounded-2xl overflow-hidden bg-black border border-white/10 relative group cursor-pointer" onClick={() => setSelectedVideo(selectedModelMedia.verificationVideo || null)}>
+                                                    <video src={selectedModelMedia.verificationVideo} className="size-full object-contain" />
+                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                                        <span className="material-symbols-outlined text-white text-3xl">verified_user</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {/* Vídeos de Preview */}
+                                        {selectedModelMedia.previewVideos.map((vid, idx) => (
+                                            <div key={idx} className="space-y-2">
+                                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest pl-1">Vídeo {idx + 1}</p>
+                                                <div className="aspect-video rounded-2xl overflow-hidden bg-black border border-white/10 relative group cursor-pointer" onClick={() => setSelectedVideo(vid)}>
+                                                    <video src={vid} className="size-full object-contain" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                                                        <span className="material-symbols-outlined text-white text-3xl">play_circle</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {!selectedModelMedia.verificationVideo && selectedModelMedia.previewVideos.length === 0 && (
+                                            <div className="col-span-full py-16 text-center border-2 border-dashed border-white/5 rounded-3xl opacity-30 italic text-xs">
+                                                Nenhum vídeo enviado.
+                                            </div>
+                                        )}
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

@@ -40,7 +40,7 @@ const GalleryPage: React.FC = () => {
           location: `${row.city}, ${row.province}`,
           categories: row.categories || [],
           bio: row.bio || '',
-          profileImage: row.profile_image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop',
+          profileImage: row.profile_image || '',
           previewVideos: row.preview_videos || [],
           galleryImages: row.gallery_images || [],
           phoneNumber: row.phone_number,
@@ -331,11 +331,17 @@ const GalleryPage: React.FC = () => {
               className="group relative w-full sm:w-[200px] flex flex-col overflow-hidden rounded-3xl bg-[#1c2127] border border-white/5 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/20"
             >
               <div className="aspect-[3/4] relative overflow-hidden">
-                <img
-                  src={model.profileImage}
-                  className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105"
-                  alt={model.artisticName}
-                />
+                {model.profileImage ? (
+                  <img
+                    src={model.profileImage}
+                    className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                    alt={model.artisticName}
+                  />
+                ) : (
+                  <div className="h-full w-full bg-[#1c2127] flex items-center justify-center">
+                    <span className="material-symbols-outlined text-4xl text-slate-700">person</span>
+                  </div>
+                )}
 
                 <div className="absolute inset-0 bg-gradient-to-t from-[#101922] via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
 

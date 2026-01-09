@@ -21,6 +21,8 @@ const RegisterPage: React.FC = () => {
     age: false
   });
   const [error, setError] = useState<string | null>(null);
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
+  const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
 
   // Carregar categorias do banco de dados
   useEffect(() => {
@@ -52,12 +54,30 @@ const RegisterPage: React.FC = () => {
     );
   };
 
+  const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('A imagem deve ter no máximo 5MB.', 'warning');
+        return;
+      }
+
+      setProfileImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
 
 
   const isFormValid = agreements.terms &&
     agreements.privacy &&
     agreements.age &&
-    selectedCategories.length > 0;
+    selectedCategories.length > 0 &&
+    !!profileImageFile;
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target;
@@ -75,6 +95,11 @@ const RegisterPage: React.FC = () => {
 
     if (selectedCategories.length === 0) {
       showToast('Por favor, selecione pelo menos uma categoria.', 'warning');
+      return;
+    }
+
+    if (!profileImageFile) {
+      showToast('Por favor, adicione uma foto de perfil.', 'warning');
       return;
     }
 
@@ -125,6 +150,34 @@ const RegisterPage: React.FC = () => {
         setError(`Erro ao salvar: ${insertError.message || 'Verifique as permissões do banco (RLS)'}`);
         setLoading(false);
         return;
+      }
+
+      // Agora que temos o ID, fazer upload da foto
+      if (insertedData && profileImageFile) {
+        const modelId = insertedData.id;
+        const timestamp = Date.now();
+        const fileExt = profileImageFile.name.split('.').pop();
+        const profileImagePath = `models/${modelId}/profile_${timestamp}.${fileExt}`;
+
+        try {
+          const profileImageUrl = await uploadFile(profileImageFile, profileImagePath);
+
+          if (profileImageUrl) {
+            // Atualizar o modelo com a URL da imagem
+            const { error: updateError } = await supabase
+              .from('models')
+              .update({ profile_image: profileImageUrl })
+              .eq('id', modelId);
+
+            if (updateError) {
+              console.error('Erro ao atualizar foto de perfil:', updateError);
+              showToast('Conta criada, mas houve um erro ao salvar a foto. Você poderá adicionar depois no painel.', 'warning');
+            }
+          }
+        } catch (uploadErr) {
+          console.error('Erro no upload da foto:', uploadErr);
+          showToast('Conta criada, mas houve um erro no upload da foto.', 'warning');
+        }
       }
 
       showToast('Cadastro realizado com sucesso! Bem-vindo(a).', 'success');
@@ -237,6 +290,47 @@ const RegisterPage: React.FC = () => {
               ))}
             </div>
           )}
+        </section>
+
+        <section className="rounded-2xl bg-[#1c2127] p-6 md:p-10 border border-white/5 shadow-xl">
+          <h2 className="text-xl font-bold border-b border-white/5 pb-4 mb-6 flex items-center gap-2">
+            <span className="material-symbols-outlined text-blue-500">add_a_photo</span>
+            Foto de Perfil
+          </h2>
+          <div className="flex flex-col items-center gap-6">
+            <div className="relative group">
+              <div className="size-40 rounded-2xl overflow-hidden bg-[#111418] border-2 border-dashed border-white/10 group-hover:border-blue-500/50 transition-all relative flex items-center justify-center">
+                {profileImagePreview ? (
+                  <img src={profileImagePreview} className="size-full object-cover" alt="Preview" />
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-slate-500">
+                    <span className="material-symbols-outlined text-4xl">add_a_photo</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Foto</span>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfileImageChange}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  required
+                />
+              </div>
+              {profileImagePreview && (
+                <button
+                  type="button"
+                  onClick={() => { setProfileImageFile(null); setProfileImagePreview(null); }}
+                  className="absolute -top-2 -right-2 size-8 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-lg">close</span>
+                </button>
+              )}
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">A foto de perfil é obrigatória para começar.</p>
+              <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-widest">JPG, PNG (Máx 5MB)</p>
+            </div>
+          </div>
         </section>
 
         <section className="rounded-2xl bg-[#1c2127] p-6 md:p-10 border border-white/5 shadow-xl">

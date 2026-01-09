@@ -464,7 +464,13 @@ const PaymentPage: React.FC = () => {
             <h3 className="text-lg font-bold uppercase italic tracking-tighter">Resumo da Reserva</h3>
             <div className="rounded-[2.5rem] bg-[#1c2127] border border-white/5 overflow-hidden shadow-xl">
               <div className="relative h-40">
-                <img src={model.profileImage} className="h-full w-full object-cover" alt="Model" />
+                {model.profileImage ? (
+                  <img src={model.profileImage} className="h-full w-full object-cover" alt="Model" />
+                ) : (
+                  <div className="h-full w-full bg-[#1c2127] flex items-center justify-center">
+                    <span className="material-symbols-outlined text-4xl text-slate-700">person</span>
+                  </div>
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-[#1c2127] to-transparent"></div>
                 <div className="absolute bottom-4 left-6">
                   <p className="text-xl font-black uppercase italic tracking-tighter text-white">{model.artisticName}</p>

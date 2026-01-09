@@ -411,7 +411,7 @@ const ProfilePage: React.FC = () => {
                       alt={model.artisticName}
                       onError={(e) => {
                         console.error('❌ Erro ao carregar imagem:', model.profileImage);
-                        (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x600?text=Erro+ao+Carregar';
+                        (e.target as HTMLImageElement).style.display = 'none';
                       }}
                       onLoad={() => {
                         console.log('✅ Imagem carregada:', model.profileImage);
